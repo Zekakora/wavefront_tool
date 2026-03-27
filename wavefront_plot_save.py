@@ -785,12 +785,12 @@ if pg is not None and QtWidgets is not None and QtCore is not None:
                 out[name] = arr
 
             if algo == "rdp_local_aic":
-                add_series("Raw", result.get("x_raw"))
-                add_series("Wavelet", result.get("x_wavelet"))
-                add_series("Smoothed", result.get("x_smooth"))
-                add_series("Slope", result.get("slope_dev"))
-                add_series("Amplitude Dev", result.get("amp_dev"))
-                add_series("AIC Signal", result.get("aic_signal"))
+                add_series("原始信号", result.get("x_raw"))
+                add_series("小波降噪", result.get("x_wavelet"))
+                add_series("SG平滑", result.get("x_smooth"))
+                add_series("斜率特性", result.get("slope_dev"))
+                add_series("幅值 dev", result.get("amp_dev"))
+                add_series("AIC信号", result.get("aic_signal"))
             elif algo == "rdp_global_iceemdan_teo":
                 add_series("Raw", result.get("x_raw"))
                 add_series("Preprocessed", result.get("x_proc"))
@@ -918,7 +918,7 @@ if pg is not None and QtWidgets is not None and QtCore is not None:
             if self.result_b is not None:
                 self._plot_channel_series("B", self.result_b, self.series_b, self.checkboxes_b)
 
-            self.plot_widget.setTitle(self.title_prefix or "Wavefront Interactive Viewer")
+            # self.plot_widget.setTitle(self.title_prefix or "Wavefront Interactive Viewer")
             self.plot_widget.setLabel("bottom", "Time", units="us")
             self.plot_widget.setLabel("left", "Amplitude / Feature")
             self.plot_widget.showGrid(x=True, y=True, alpha=0.22)
@@ -938,10 +938,10 @@ if pg is not None and QtWidgets is not None and QtCore is not None:
                 x0, x1 = self.plot_widget.getViewBox().viewRange()[0]
                 dt = float(x1 - x0)
                 self.label_range.setText(
-                    f"Selected / visible time window: [{x0:.3f}, {x1:.3f}] us    Δt = {dt:.3f} us"
+                    f"已选择/窗口时间: [{x0:.3f}, {x1:.3f}] us    Δt = {dt:.3f} us"
                 )
             except Exception:
-                self.label_range.setText("Selected / visible time window: --")
+                self.label_range.setText("已选择/窗口时间: --")
 
         def _on_mouse_clicked(self, event) -> None:
             if event.button() != QT_RIGHT_BUTTON:

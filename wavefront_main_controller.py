@@ -28,7 +28,7 @@ if str(CURRENT_DIR) not in sys.path:
 if MODULAR_DIR.exists() and str(MODULAR_DIR) not in sys.path:
     sys.path.insert(0, str(MODULAR_DIR))
 
-from main import Ui_MainWindow
+from main_m import Ui_MainWindow
 from wavefront_algo_iceemdan_teo import detect_wavefront_rdp_global_iceemdan_teo
 from wavefront_algo_rdp_aic import detect_wavefront_rdp
 from wavefront_data_io import build_pairs, extract_match_key, list_csv_files, load_ab_signals
@@ -773,12 +773,12 @@ class WavefrontMainController(QMainWindow):
         raise TypeError(f"Unsupported widget type: {type(widget)}")
 
 
-# def main() -> int:
-#     app = QtWidgets.QApplication(sys.argv)
-#     window = WavefrontMainController()
-#     window.show()
-#     return app.exec()
+def main() -> int:
+    app = QtWidgets.QApplication(sys.argv)
+    window = WavefrontMainController()
+    window.show()
+    return app.exec()
 
-#
-# if __name__ == "__main__":
-#     raise SystemExit(main())
+
+if __name__ == "__main__":
+    raise SystemExit(main())
