@@ -546,465 +546,506 @@ def print_result_summary(result: dict[str, Any], *, end_name: str = "") -> None:
     print("=" * 78)
 
 
-# =============================================================================
-# PyQtGraph interactive viewer for GUI embedding
-# =============================================================================
-try:
-    from PyQt6 import QtCore, QtWidgets
-    _QT_API = "PyQt6"
-except Exception:
-    from PyQt5 import QtCore, QtWidgets  # type: ignore
-    _QT_API = "PyQt5"
+__all__ = [
+    "FS",
+    "build_result_summary",
+    "create_result_figure_ab",
+    "create_result_figure_single",
+    "print_result_summary",
+    "save_figure",
+    "save_result_summary_json",
+]
+
+# ============================
+# PyQtGraph interactive viewer
+# ============================
+from pathlib import Path
 
 try:
     import pyqtgraph as pg  # type: ignore
-    from pyqtgraph.exporters import ImageExporter  # type: ignore
-    try:
-        from pyqtgraph.exporters import SVGExporter  # type: ignore
-    except Exception:
-        SVGExporter = None
-    _PYQTGRAPH_AVAILABLE = True
-    _PYQTGRAPH_IMPORT_ERROR = None
-except Exception as _pg_exc:  # pragma: no cover - depends on local env
+    import pyqtgraph.exporters as pg_exporters  # type: ignore
+    _PG_IMPORT_ERROR: Exception | None = None
+except Exception as _exc_pg:  # pragma: no cover - import-time fallback
     pg = None  # type: ignore
-    ImageExporter = None  # type: ignore
-    SVGExporter = None  # type: ignore
-    _PYQTGRAPH_AVAILABLE = False
-    _PYQTGRAPH_IMPORT_ERROR = _pg_exc
+    pg_exporters = None  # type: ignore
+    _PG_IMPORT_ERROR = _exc_pg
 
-
-def _qt_dash_style():
+try:  # pragma: no cover - import-time fallback
+    from PyQt6 import QtCore, QtWidgets
+    QT_PEN_SOLID = QtCore.Qt.PenStyle.SolidLine
+    QT_RIGHT_BUTTON = QtCore.Qt.MouseButton.RightButton
+    QT_HORIZONTAL = QtCore.Qt.Orientation.Horizontal
+except Exception:
     try:
-        return QtCore.Qt.PenStyle.DashLine
-    except Exception:
-        return QtCore.Qt.DashLine
+        from PyQt5 import QtCore, QtWidgets  # type: ignore
+        QT_PEN_SOLID = QtCore.Qt.SolidLine
+        QT_RIGHT_BUTTON = QtCore.Qt.RightButton
+        QT_HORIZONTAL = QtCore.Qt.Horizontal
+    except Exception as _exc_qt:  # pragma: no cover - import-time fallback
+        QtCore = None  # type: ignore
+        QtWidgets = None  # type: ignore
+        if _PG_IMPORT_ERROR is None:
+            _PG_IMPORT_ERROR = _exc_qt
 
 
-def _qt_dot_style():
-    try:
-        return QtCore.Qt.PenStyle.DotLine
-    except Exception:
-        return QtCore.Qt.DotLine
+if pg is not None:
+    pg.setConfigOptions(antialias=True)
 
 
-def _safe_name(path_or_label: str | None, fallback: str) -> str:
-    if not path_or_label:
-        return fallback
-    base = os.path.basename(str(path_or_label).strip())
-    return base or fallback
+A_COLORS = [
+    (25, 118, 210),
+    (30, 136, 229),
+    (66, 165, 245),
+    (100, 181, 246),
+    (21, 101, 192),
+    (13, 71, 161),
+]
+B_COLORS = [
+    (230, 81, 0),
+    (244, 81, 30),
+    (255, 112, 67),
+    (255, 138, 101),
+    (216, 67, 21),
+    (191, 54, 12),
+]
 
 
-def _normalize_array(y: np.ndarray) -> np.ndarray:
-    y = np.asarray(y, dtype=float)
-    scale = float(np.nanmax(np.abs(y))) if y.size else 1.0
-    if not np.isfinite(scale) or scale <= 1e-15:
-        scale = 1.0
-    return y / scale
+def _require_pyqtgraph() -> None:
+    if pg is None or QtWidgets is None or QtCore is None:
+        raise ImportError(
+            "pyqtgraph viewer requires pyqtgraph and PyQt (PyQt6 or PyQt5). "
+            f"Original import error: {_PG_IMPORT_ERROR}"
+        )
 
 
-def _display_index_for_result(result: dict[str, Any]) -> int:
-    algo = result.get("algorithm")
-    if algo == "rdp_local_aic":
-        return int(round(float(result.get("idx_head_float", result.get("idx_head", 0)))))
-    return int(result.get("idx_head", 0))
+def _clear_qt_layout(layout) -> None:
+    while layout.count():
+        item = layout.takeAt(0)
+        widget = item.widget()
+        child_layout = item.layout()
+        if widget is not None:
+            widget.deleteLater()
+        elif child_layout is not None:
+            _clear_qt_layout(child_layout)
 
 
-def _interactive_series_catalog(result: dict[str, Any]) -> list[dict[str, Any]]:
-    algo = result.get("algorithm")
-    catalog: list[dict[str, Any]] = []
-    if algo == "rdp_local_aic":
-        catalog = [
-            {"key": "x_raw", "label": "Raw Signal", "data_key": "x_raw", "default": True},
-            {"key": "x_wavelet", "label": "Wavelet Denoised", "data_key": "x_wavelet", "default": True},
-            {"key": "x_smooth", "label": "SG Smoothed", "data_key": "x_smooth", "default": True},
-            {"key": "slope_dev", "label": "Slope Feature", "data_key": "slope_dev", "default": False},
-        ]
-    elif algo == "rdp_global_iceemdan_teo":
-        catalog = [
-            {"key": "x_raw", "label": "Raw Signal", "data_key": "x_raw", "default": True},
-            {"key": "x_proc", "label": "Preprocessed", "data_key": "x_proc", "default": True},
-            {"key": "teo_input", "label": "TEO Input", "data_key": "teo_input", "default": False},
-            {"key": "feature", "label": "Feature", "data_key": "feature", "default": True},
-        ]
-        imfs = result.get("imfs")
-        if isinstance(imfs, np.ndarray) and imfs.ndim == 2 and imfs.shape[0] >= 1:
-            catalog.append({"key": "imf1", "label": "IMF1", "data_key": "imf1", "default": False})
-        if isinstance(imfs, np.ndarray) and imfs.ndim == 2 and imfs.shape[0] >= 2:
-            catalog.append({"key": "imf2", "label": "IMF2", "data_key": "imf2", "default": False})
+def export_plot_widget_image(plot_widget, file_path: str, width: int = 1800) -> str:
+    _require_pyqtgraph()
+    file_path = str(file_path)
+    suffix = Path(file_path).suffix.lower()
+    plot_item = getattr(plot_widget, "plotItem", plot_widget)
+
+    if suffix == ".svg":
+        exporter = pg_exporters.SVGExporter(plot_item)
     else:
-        catalog = [
-            {"key": "x_raw", "label": "Raw Signal", "data_key": "x_raw", "default": True},
-        ]
-    return catalog
-
-
-def _series_array(result: dict[str, Any], data_key: str) -> np.ndarray | None:
-    if data_key == "imf1":
-        imfs = result.get("imfs")
-        if isinstance(imfs, np.ndarray) and imfs.ndim == 2 and imfs.shape[0] >= 1:
-            return np.asarray(imfs[0], dtype=float)
-        return None
-    if data_key == "imf2":
-        imfs = result.get("imfs")
-        if isinstance(imfs, np.ndarray) and imfs.ndim == 2 and imfs.shape[0] >= 2:
-            return np.asarray(imfs[1], dtype=float)
-        return None
-    value = result.get(data_key)
-    if value is None:
-        return None
-    return np.asarray(value, dtype=float)
-
-
-class WavefrontInteractiveViewer(QtWidgets.QWidget):
-    """Interactive A/B overlay viewer based on pyqtgraph.
-
-    Features:
-    - A/B ends on the same plot
-    - user can toggle A, B, or both
-    - user can choose one or multiple waveform series
-    - mouse wheel / drag zooming from pyqtgraph
-    - wave head markers and optional search-window markers
-    """
-
-    def __init__(self, parent: QtWidgets.QWidget | None = None) -> None:
-        super().__init__(parent)
-        self.result_a: dict[str, Any] | None = None
-        self.result_b: dict[str, Any] | None = None
-        self.file_a: str | None = None
-        self.file_b: str | None = None
-        self.fs: float = FS
-        self.title_prefix: str = "Wavefront detection"
-        self._series_checkboxes: dict[str, QtWidgets.QCheckBox] = {}
-        self._catalog: list[dict[str, Any]] = []
-        self._legend = None
-
-        root = QtWidgets.QVBoxLayout(self)
-        root.setContentsMargins(4, 4, 4, 4)
-        root.setSpacing(6)
-
-        if not _PYQTGRAPH_AVAILABLE:
-            label = QtWidgets.QLabel(
-                "pyqtgraph is not installed in the current environment.\n"
-                "Install it with: pip install pyqtgraph\n\n"
-                f"Import error: {_PYQTGRAPH_IMPORT_ERROR}"
-            )
-            label.setWordWrap(True)
-            label.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-            label.setStyleSheet("color:#666;border:1px dashed #BBB;padding:20px;")
-            root.addWidget(label, 1)
-            self._missing_label = label
-            self.plot_widget = None
-            return
-
-        controls = QtWidgets.QHBoxLayout()
-        controls.setSpacing(10)
-        root.addLayout(controls)
-
-        self.chk_show_a = QtWidgets.QCheckBox("Show A")
-        self.chk_show_b = QtWidgets.QCheckBox("Show B")
-        self.chk_show_a.setChecked(True)
-        self.chk_show_b.setChecked(True)
-        self.chk_normalize = QtWidgets.QCheckBox("Normalize")
-        self.chk_show_heads = QtWidgets.QCheckBox("Mark Heads")
-        self.chk_show_heads.setChecked(True)
-        self.chk_show_windows = QtWidgets.QCheckBox("Mark Search Windows")
-        self.chk_show_windows.setChecked(False)
-        self.btn_reset_view = QtWidgets.QPushButton("Reset View")
-
-        for w in [self.chk_show_a, self.chk_show_b, self.chk_normalize, self.chk_show_heads, self.chk_show_windows, self.btn_reset_view]:
-            controls.addWidget(w)
-        controls.addStretch(1)
-
-        series_group = QtWidgets.QGroupBox("Waveforms")
-        self.series_layout = QtWidgets.QHBoxLayout(series_group)
-        self.series_layout.setContentsMargins(8, 6, 8, 6)
-        self.series_layout.setSpacing(10)
-        root.addWidget(series_group)
-
-        tip = QtWidgets.QLabel(
-            "Mouse wheel: zoom   |   Left drag: pan   |   Select one or multiple waveforms"
-        )
-        tip.setStyleSheet("color:#666;")
-        root.addWidget(tip)
-
-        self.plot_widget = pg.PlotWidget()
-        self.plot_widget.showGrid(x=True, y=True, alpha=0.25)
-        self.plot_widget.setClipToView(True)
-        self.plot_widget.setLabel("bottom", "Time", units="us")
-        self.plot_widget.setLabel("left", "Amplitude / Feature")
+        exporter = pg_exporters.ImageExporter(plot_item)
         try:
+            params = exporter.parameters()
+            if "width" in params:
+                params["width"] = int(width)
+        except Exception:
+            pass
+    exporter.export(file_path)
+    return file_path
+
+
+if pg is not None and QtWidgets is not None and QtCore is not None:
+
+    class WavefrontInteractiveViewer(QtWidgets.QWidget):
+        """Interactive A/B waveform viewer based on pyqtgraph.
+
+        Features:
+        - A/B traces drawn in the same plot with different colors
+        - Each trace uses solid lines
+        - Per-channel waveform selection via checkboxes
+        - Default mode: left-drag pans the view
+        - Right click toggles crosshair mode; while active, left-drag performs rectangle zoom
+        - The visible x-range is shown as selected time window
+        - Wavehead positions are marked for both ends
+        """
+
+        def __init__(self, parent=None) -> None:
+            super().__init__(parent)
+            self.result_a: dict[str, Any] | None = None
+            self.result_b: dict[str, Any] | None = None
+            self.fs: float = FS
+            self.title_prefix: str = ""
+            self.file_a: str | None = None
+            self.file_b: str | None = None
+            self.series_a: dict[str, np.ndarray] = {}
+            self.series_b: dict[str, np.ndarray] = {}
+            self.checkboxes_a: dict[str, QtWidgets.QCheckBox] = {}
+            self.checkboxes_b: dict[str, QtWidgets.QCheckBox] = {}
+            self._full_x_range: tuple[float, float] = (0.0, 1.0)
+            self._crosshair_enabled = False
+            self._updating_checks = False
+            self._build_ui()
+
+        def _build_ui(self) -> None:
+            root = QtWidgets.QHBoxLayout(self)
+            root.setContentsMargins(0, 0, 0, 0)
+            root.setSpacing(6)
+
+            splitter = QtWidgets.QSplitter(QT_HORIZONTAL, self)
+            root.addWidget(splitter, 1)
+
+            left_panel = QtWidgets.QWidget(splitter)
+            left_panel.setMinimumWidth(250)
+            left_layout = QtWidgets.QVBoxLayout(left_panel)
+            left_layout.setContentsMargins(6, 6, 6, 6)
+            left_layout.setSpacing(6)
+
+            self.label_hint = QtWidgets.QLabel(
+                "Controls:\n"
+                "• Left drag: box zoom / select visible time window\n"
+                "• Mouse wheel: zoom in/out\n"
+                "• Right click in plot: activate crosshair readout\n"
+                "• Reset View: restore full time range"
+            )
+            self.label_hint.setWordWrap(True)
+            left_layout.addWidget(self.label_hint)
+
+            self.label_range = QtWidgets.QLabel("Selected / visible time window: --")
+            self.label_range.setWordWrap(True)
+            left_layout.addWidget(self.label_range)
+
+            self.label_cursor = QtWidgets.QLabel("Crosshair: inactive")
+            self.label_cursor.setWordWrap(True)
+            left_layout.addWidget(self.label_cursor)
+
+            btn_row = QtWidgets.QHBoxLayout()
+            self.btn_reset_view = QtWidgets.QPushButton("Reset View")
+            self.btn_reset_view.clicked.connect(self.reset_view)
+            btn_row.addWidget(self.btn_reset_view)
+            self.btn_clear_cursor = QtWidgets.QPushButton("Clear Cursor")
+            self.btn_clear_cursor.clicked.connect(self.clear_cursor)
+            btn_row.addWidget(self.btn_clear_cursor)
+            left_layout.addLayout(btn_row)
+
+            self.group_a = QtWidgets.QGroupBox("Channel A traces")
+            self.layout_a = QtWidgets.QVBoxLayout(self.group_a)
+            self.layout_a.setContentsMargins(6, 10, 6, 6)
+            self.layout_a.setSpacing(4)
+            left_layout.addWidget(self.group_a)
+
+            self.group_b = QtWidgets.QGroupBox("Channel B traces")
+            self.layout_b = QtWidgets.QVBoxLayout(self.group_b)
+            self.layout_b.setContentsMargins(6, 10, 6, 6)
+            self.layout_b.setSpacing(4)
+            left_layout.addWidget(self.group_b)
+            left_layout.addStretch(1)
+
+            right_panel = QtWidgets.QWidget(splitter)
+            right_layout = QtWidgets.QVBoxLayout(right_panel)
+            right_layout.setContentsMargins(0, 0, 0, 0)
+            right_layout.setSpacing(4)
+
+            self.plot_widget = pg.PlotWidget()
             self.plot_widget.setBackground("w")
-        except Exception:
-            pass
-        root.addWidget(self.plot_widget, 1)
+            self.plot_widget.showGrid(x=True, y=True, alpha=0.22)
+            self.plot_widget.setLabel("bottom", "Time", units="us")
+            self.plot_widget.setLabel("left", "Amplitude / Feature")
+            self._set_mouse_pan_mode()
+            self.plot_widget.setMenuEnabled(False)
+            right_layout.addWidget(self.plot_widget, 1)
 
-        self.chk_show_a.toggled.connect(self.refresh_plot)
-        self.chk_show_b.toggled.connect(self.refresh_plot)
-        self.chk_normalize.toggled.connect(self.refresh_plot)
-        self.chk_show_heads.toggled.connect(self.refresh_plot)
-        self.chk_show_windows.toggled.connect(self.refresh_plot)
-        self.btn_reset_view.clicked.connect(self.reset_view)
+            self.plot_item = self.plot_widget.getPlotItem()
+            self.legend = self.plot_item.addLegend(offset=(12, 8))
 
-        self.clear_results()
+            self.vline = pg.InfiniteLine(angle=90, movable=False, pen=pg.mkPen((50, 50, 50), width=1))
+            self.hline = pg.InfiniteLine(angle=0, movable=False, pen=pg.mkPen((50, 50, 50), width=1))
+            self.vline.hide()
+            self.hline.hide()
+            self.plot_item.addItem(self.vline, ignoreBounds=True)
+            self.plot_item.addItem(self.hline, ignoreBounds=True)
 
-    def clear_results(self) -> None:
-        self.result_a = None
-        self.result_b = None
-        if getattr(self, "plot_widget", None) is not None:
-            self.plot_widget.clear()
-            self.plot_widget.setTitle("Interactive Waveform Viewer")
-        self._rebuild_series_controls([])
+            self.marker_items: list[Any] = []
+            self.proxy_move = pg.SignalProxy(self.plot_widget.scene().sigMouseMoved, rateLimit=60, slot=self._on_mouse_moved)
+            self.plot_widget.scene().sigMouseClicked.connect(self._on_mouse_clicked)
+            self.plot_widget.getViewBox().sigXRangeChanged.connect(self._on_x_range_changed)
 
-    def set_results(
-        self,
-        result_a: dict[str, Any],
-        result_b: dict[str, Any],
-        *,
-        file_a: str | None = None,
-        file_b: str | None = None,
-        fs: float | None = None,
-        title_prefix: str | None = None,
-    ) -> None:
-        self.result_a = result_a
-        self.result_b = result_b
-        self.file_a = file_a
-        self.file_b = file_b
-        self.fs = _result_fs(result_a, fs)
-        self.title_prefix = title_prefix or result_a.get("algorithm_label", "Wavefront detection")
-        self._catalog = _interactive_series_catalog(result_a)
-        self._rebuild_series_controls(self._catalog)
-        self.refresh_plot()
+            splitter.setSizes([280, 1000])
 
-    def selected_series_keys(self) -> list[str]:
-        return [key for key, cb in self._series_checkboxes.items() if cb.isChecked()]
+        def _set_mouse_pan_mode(self) -> None:
+            self.plot_widget.getViewBox().setMouseMode(pg.ViewBox.PanMode)
 
-    def _rebuild_series_controls(self, catalog: list[dict[str, Any]]) -> None:
-        while self.series_layout.count():
-            item = self.series_layout.takeAt(0)
-            widget = item.widget()
-            if widget is not None:
-                widget.deleteLater()
-        self._series_checkboxes.clear()
+        def _set_mouse_rect_mode(self) -> None:
+            self.plot_widget.getViewBox().setMouseMode(pg.ViewBox.RectMode)
 
-        for spec in catalog:
-            cb = QtWidgets.QCheckBox(spec["label"])
-            cb.setChecked(bool(spec.get("default", False)))
-            cb.toggled.connect(self.refresh_plot)
-            self.series_layout.addWidget(cb)
-            self._series_checkboxes[spec["key"]] = cb
-        self.series_layout.addStretch(1)
+        def _extract_series(self, result: dict[str, Any]) -> dict[str, np.ndarray]:
+            algo = result.get("algorithm")
+            out: dict[str, np.ndarray] = {}
 
-    def _display_series(
-        self,
-        result: dict[str, Any],
-        *,
-        side_label: str,
-        source_label: str,
-        show_side: bool,
-        selected_series: list[str],
-        normalize: bool,
-        colors: dict[str, str],
-        dash: bool,
-    ) -> list[tuple[np.ndarray, np.ndarray, str]]:
-        if not show_side or not selected_series:
-            return []
-        out: list[tuple[np.ndarray, np.ndarray, str]] = []
-        t = time_vector(len(result["x_raw"]), self.fs) * 1e6
-        for series_key in selected_series:
-            spec = next((s for s in self._catalog if s["key"] == series_key), None)
-            if spec is None:
-                continue
-            arr = _series_array(result, spec["data_key"])
-            if arr is None or len(arr) != len(t):
-                continue
-            y = _normalize_array(arr) if normalize else np.asarray(arr, dtype=float)
-            label = f"{side_label} - {spec['label']}"
-            out.append((t, y, label))
-        return out
+            def add_series(name: str, value: Any) -> None:
+                if value is None:
+                    return
+                arr = np.asarray(value, dtype=float)
+                if arr.ndim != 1 or arr.size == 0:
+                    return
+                out[name] = arr
 
-    def refresh_plot(self) -> None:
-        if getattr(self, "plot_widget", None) is None:
-            return
-        self.plot_widget.clear()
-        plot_item = self.plot_widget.getPlotItem()
-        if self._legend is not None:
+            if algo == "rdp_local_aic":
+                add_series("Raw", result.get("x_raw"))
+                add_series("Wavelet", result.get("x_wavelet"))
+                add_series("Smoothed", result.get("x_smooth"))
+                add_series("Slope", result.get("slope_dev"))
+                add_series("Amplitude Dev", result.get("amp_dev"))
+                add_series("AIC Signal", result.get("aic_signal"))
+            elif algo == "rdp_global_iceemdan_teo":
+                add_series("Raw", result.get("x_raw"))
+                add_series("Preprocessed", result.get("x_proc"))
+                add_series("TEO Input", result.get("teo_input"))
+                add_series("IMF Smoothed", result.get("x_smooth"))
+                add_series(result.get("feature_name", "Feature"), result.get("feature"))
+                imfs = result.get("imfs")
+                if imfs is not None:
+                    imfs = np.asarray(imfs, dtype=float)
+                    if imfs.ndim == 2 and imfs.shape[0] >= 1:
+                        add_series("IMF1", imfs[0])
+                    if imfs.ndim == 2 and imfs.shape[0] >= 2:
+                        add_series("IMF2", imfs[1])
+                add_series("Residue", result.get("residue"))
+            else:
+                add_series("Raw", result.get("x_raw"))
+            return out
+
+        def _default_visible_names(self, result: dict[str, Any]) -> set[str]:
+            algo = result.get("algorithm")
+            if algo == "rdp_local_aic":
+                return {"Raw", "Wavelet", "Smoothed"}
+            if algo == "rdp_global_iceemdan_teo":
+                return {"Raw", "Preprocessed", "TEO Input"}
+            return {"Raw"}
+
+        def _rebuild_trace_controls(self) -> None:
+            self._updating_checks = True
+            _clear_qt_layout(self.layout_a)
+            _clear_qt_layout(self.layout_b)
+            self.checkboxes_a.clear()
+            self.checkboxes_b.clear()
+
+            def populate(layout, names, store_dict, defaults):
+                for name in names:
+                    cb = QtWidgets.QCheckBox(name)
+                    cb.setChecked(name in defaults)
+                    cb.toggled.connect(self._render_plot)
+                    layout.addWidget(cb)
+                    store_dict[name] = cb
+                layout.addStretch(1)
+
+            defaults_a = self._default_visible_names(self.result_a or {})
+            defaults_b = self._default_visible_names(self.result_b or {})
+            populate(self.layout_a, self.series_a.keys(), self.checkboxes_a, defaults_a)
+            populate(self.layout_b, self.series_b.keys(), self.checkboxes_b, defaults_b)
+            self._updating_checks = False
+
+        def _channel_pen(self, channel: str, idx: int):
+            colors = A_COLORS if channel == "A" else B_COLORS
+            return pg.mkPen(color=colors[idx % len(colors)], width=1.8, style=QT_PEN_SOLID)
+
+        def _head_pen(self, channel: str):
+            color = A_COLORS[0] if channel == "A" else B_COLORS[0]
+            return pg.mkPen(color=color, width=2.2, style=QT_PEN_SOLID)
+
+        def _plot_channel_series(self, channel: str, result: dict[str, Any], series_map: dict[str, np.ndarray], checks: dict[str, QtWidgets.QCheckBox]) -> None:
+            for idx, (name, y) in enumerate(series_map.items()):
+                cb = checks.get(name)
+                if cb is None or not cb.isChecked():
+                    continue
+                x_us = time_vector(len(y), self.fs) * 1e6
+                self.plot_item.plot(
+                    x_us,
+                    np.asarray(y, dtype=float),
+                    pen=self._channel_pen(channel, idx),
+                    name=f"{channel}-{name}",
+                )
+
+            t_head_us = float(result.get("t_head", 0.0)) * 1e6
+            head_line = pg.InfiniteLine(pos=t_head_us, angle=90, movable=False, pen=self._head_pen(channel))
+            self.plot_item.addItem(head_line, ignoreBounds=True)
+            self.marker_items.append(head_line)
+
+            y_ref = None
+            x_smooth = result.get("x_smooth")
+            if x_smooth is not None:
+                arr = np.asarray(x_smooth, dtype=float)
+                idx_head = int(np.clip(int(round(result.get("idx_head", 0))), 0, max(len(arr) - 1, 0))) if arr.size else 0
+                if arr.size:
+                    y_ref = float(arr[idx_head])
+            if y_ref is None:
+                x_raw = np.asarray(result.get("x_raw", []), dtype=float)
+                idx_head = int(np.clip(int(round(result.get("idx_head", 0))), 0, max(len(x_raw) - 1, 0))) if x_raw.size else 0
+                if x_raw.size:
+                    y_ref = float(x_raw[idx_head])
+            if y_ref is not None:
+                scatter = pg.ScatterPlotItem(
+                    [t_head_us],
+                    [y_ref],
+                    pen=self._head_pen(channel),
+                    brush=pg.mkBrush(A_COLORS[0] if channel == "A" else B_COLORS[0]),
+                    size=9,
+                    symbol="o",
+                )
+                self.plot_item.addItem(scatter)
+                self.marker_items.append(scatter)
+
+        def _render_plot(self) -> None:
+            if self._updating_checks:
+                return
+            x_range = None
             try:
-                self._legend.scene().removeItem(self._legend)
+                x_range = tuple(self.plot_widget.getViewBox().viewRange()[0])
             except Exception:
-                pass
-            self._legend = None
-        self._legend = plot_item.addLegend(offset=(8, 8))
+                x_range = None
 
-        if self.result_a is None or self.result_b is None:
-            plot_item.setTitle("Interactive Waveform Viewer")
-            return
+            self.plot_item.clear()
+            if self.legend is None:
+                self.legend = self.plot_item.addLegend(offset=(12, 8))
+            else:
+                try:
+                    self.legend.clear()
+                except Exception:
+                    self.legend = self.plot_item.addLegend(offset=(12, 8))
+            self.marker_items.clear()
+            self.plot_item.addItem(self.vline, ignoreBounds=True)
+            self.plot_item.addItem(self.hline, ignoreBounds=True)
+            if not self._crosshair_enabled:
+                self.vline.hide()
+                self.hline.hide()
 
-        selected_series = self.selected_series_keys()
-        if not selected_series:
-            plot_item.setTitle(f"{self.title_prefix} | No waveform selected")
-            return
+            if self.result_a is not None:
+                self._plot_channel_series("A", self.result_a, self.series_a, self.checkboxes_a)
+            if self.result_b is not None:
+                self._plot_channel_series("B", self.result_b, self.series_b, self.checkboxes_b)
 
-        colors = {
-            "x_raw": "#1f77b4",
-            "x_wavelet": "#ff7f0e",
-            "x_smooth": "#2ca02c",
-            "slope_dev": "#d62728",
-            "x_proc": "#9467bd",
-            "teo_input": "#8c564b",
-            "feature": "#e377c2",
-            "imf1": "#17becf",
-            "imf2": "#bcbd22",
-        }
-        normalize = self.chk_normalize.isChecked()
-        show_a = self.chk_show_a.isChecked()
-        show_b = self.chk_show_b.isChecked()
+            self.plot_widget.setTitle(self.title_prefix or "Wavefront Interactive Viewer")
+            self.plot_widget.setLabel("bottom", "Time", units="us")
+            self.plot_widget.setLabel("left", "Amplitude / Feature")
+            self.plot_widget.showGrid(x=True, y=True, alpha=0.22)
 
-        dash_style = _qt_dash_style()
-        lines: list[tuple[np.ndarray, np.ndarray, str]] = []
-        lines.extend(
-            self._display_series(
-                self.result_a,
-                side_label="A",
-                source_label=_safe_name(self.file_a, "A"),
-                show_side=show_a,
-                selected_series=selected_series,
-                normalize=normalize,
-                colors=colors,
-                dash=False,
+            if x_range is None:
+                self.reset_view()
+            else:
+                self.plot_widget.setXRange(float(x_range[0]), float(x_range[1]), padding=0.0)
+                self.plot_widget.enableAutoRange(axis="y", enable=True)
+                self._update_range_label()
+
+        def _on_x_range_changed(self, *args) -> None:
+            self._update_range_label()
+
+        def _update_range_label(self) -> None:
+            try:
+                x0, x1 = self.plot_widget.getViewBox().viewRange()[0]
+                dt = float(x1 - x0)
+                self.label_range.setText(
+                    f"Selected / visible time window: [{x0:.3f}, {x1:.3f}] us    Δt = {dt:.3f} us"
+                )
+            except Exception:
+                self.label_range.setText("Selected / visible time window: --")
+
+        def _on_mouse_clicked(self, event) -> None:
+            if event.button() != QT_RIGHT_BUTTON:
+                return
+            if not self.plot_widget.sceneBoundingRect().contains(event.scenePos()):
+                return
+            if self._crosshair_enabled:
+                self.clear_cursor()
+            else:
+                point = self.plot_widget.getViewBox().mapSceneToView(event.scenePos())
+                self._crosshair_enabled = True
+                self.vline.show()
+                self.hline.show()
+                self._set_mouse_rect_mode()
+                self._set_crosshair(point.x(), point.y())
+            event.accept()
+
+        def _on_mouse_moved(self, evt) -> None:
+            if not self._crosshair_enabled:
+                return
+            pos = evt[0] if isinstance(evt, tuple) else evt
+            if not self.plot_widget.sceneBoundingRect().contains(pos):
+                return
+            point = self.plot_widget.getViewBox().mapSceneToView(pos)
+            self._set_crosshair(point.x(), point.y())
+
+        def _set_crosshair(self, x_us: float, y_val: float) -> None:
+            self.vline.setPos(float(x_us))
+            self.hline.setPos(float(y_val))
+            self.label_cursor.setText(f"Crosshair: t = {float(x_us):.3f} us, y = {float(y_val):.6g}")
+
+        def clear_cursor(self) -> None:
+            self._crosshair_enabled = False
+            self.vline.hide()
+            self.hline.hide()
+            self._set_mouse_pan_mode()
+            self.label_cursor.setText("Crosshair: inactive")
+
+        def reset_view(self) -> None:
+            x0, x1 = self._full_x_range
+            self.plot_widget.setXRange(float(x0), float(x1), padding=0.02)
+            self.plot_widget.enableAutoRange(axis="y", enable=True)
+            self._update_range_label()
+
+        def set_results(
+            self,
+            result_a: dict[str, Any],
+            result_b: dict[str, Any],
+            *,
+            file_a: str | None = None,
+            file_b: str | None = None,
+            fs: float | None = None,
+            title_prefix: str | None = None,
+        ) -> None:
+            self.result_a = result_a
+            self.result_b = result_b
+            self.file_a = file_a
+            self.file_b = file_b
+            self.fs = float(fs) if fs is not None else _result_fs(result_a, None)
+            self.title_prefix = title_prefix or result_a.get("algorithm_label", "Wavefront Interactive Viewer")
+            self.series_a = self._extract_series(result_a)
+            self.series_b = self._extract_series(result_b)
+
+            max_len = max(
+                max((len(v) for v in self.series_a.values()), default=0),
+                max((len(v) for v in self.series_b.values()), default=0),
             )
-        )
-        lines.extend(
-            self._display_series(
-                self.result_b,
-                side_label="B",
-                source_label=_safe_name(self.file_b, "B"),
-                show_side=show_b,
-                selected_series=selected_series,
-                normalize=normalize,
-                colors=colors,
-                dash=True,
-            )
-        )
+            max_x = max_len / self.fs * 1e6 if self.fs > 0 else 1.0
+            self._full_x_range = (0.0, max_x)
 
-        for t, y, label in lines:
-            series_key = None
-            for key, cb in self._series_checkboxes.items():
-                if label.endswith(cb.text()):
-                    series_key = key
-                    break
-            color = colors.get(series_key or "x_raw", "#1f77b4")
-            is_b = label.startswith("B -")
-            pen = pg.mkPen(color=color, width=1.8, style=(dash_style if is_b else None))
-            self.plot_widget.plot(t, y, pen=pen, name=label)
+            self._rebuild_trace_controls()
+            self.clear_cursor()
+            self._render_plot()
+            self.reset_view()
 
-        if self.chk_show_heads.isChecked():
-            self._draw_head_markers(self.result_a, "A", show_a, normalize, colors)
-            self._draw_head_markers(self.result_b, "B", show_b, normalize, colors)
+        def clear_results(self) -> None:
+            self.result_a = None
+            self.result_b = None
+            self.series_a.clear()
+            self.series_b.clear()
+            self._updating_checks = True
+            _clear_qt_layout(self.layout_a)
+            _clear_qt_layout(self.layout_b)
+            self.checkboxes_a.clear()
+            self.checkboxes_b.clear()
+            self._updating_checks = False
+            self.plot_item.clear()
+            self.plot_item.addItem(self.vline, ignoreBounds=True)
+            self.plot_item.addItem(self.hline, ignoreBounds=True)
+            self.clear_cursor()
+            self.label_range.setText("Selected / visible time window: --")
+            self.plot_widget.setTitle("Wavefront Interactive Viewer")
 
-        if self.chk_show_windows.isChecked():
-            self._draw_search_window(self.result_a, show_a, "#1f77b4")
-            self._draw_search_window(self.result_b, show_b, "#d62728")
+else:
 
-        # dt_us = abs(float(self.result_a["t_head"]) - float(self.result_b["t_head"])) * 1e6
-        # plot_item.setTitle(
-        #     f"{self.title_prefix} | A={self.result_a['t_head'] * 1e6:.3f} us | "
-        #     f"B={self.result_b['t_head'] * 1e6:.3f} us | Δt={dt_us:.3f} us"
-        # )
-        plot_item.setLabel("bottom", "Time", units="us")
-        plot_item.setLabel("left", "Normalized value" if normalize else "Amplitude / Feature")
-        self.reset_view()
+    class WavefrontInteractiveViewer:  # pragma: no cover - fallback class for missing GUI deps
+        def __init__(self, *args, **kwargs) -> None:
+            _require_pyqtgraph()
 
-    def _draw_head_markers(
-        self,
-        result: dict[str, Any],
-        side_label: str,
-        visible: bool,
-        normalize: bool,
-        colors: dict[str, str],
-    ) -> None:
-        if not visible or getattr(self, "plot_widget", None) is None:
-            return
-        selected = self.selected_series_keys()
-        if not selected:
-            return
-        chosen_key = selected[0]
-        spec = next((s for s in self._catalog if s["key"] == chosen_key), None)
-        if spec is None:
-            return
-        arr = _series_array(result, spec["data_key"])
-        if arr is None or arr.size == 0:
-            return
-        if normalize:
-            arr = _normalize_array(arr)
-        idx = _display_index_for_result(result)
-        idx = max(0, min(int(idx), len(arr) - 1))
-        x = float(result["t_head"]) * 1e6
-        y = float(arr[idx])
-        color = colors.get(chosen_key, "#1f77b4")
-        line = pg.InfiniteLine(pos=x, angle=90, pen=pg.mkPen(color=color, width=1.2, style=_qt_dot_style()))
-        line.setZValue(5)
-        self.plot_widget.addItem(line)
-        self.plot_widget.plot([x], [y], pen=None, symbol="o", symbolSize=8, symbolBrush=color, symbolPen=color)
-        text = pg.TextItem(f"{side_label} head\n{x:.3f} us", color=color, anchor=(0, 1))
-        text.setPos(x, y)
-        self.plot_widget.addItem(text)
+        def set_results(self, *args, **kwargs) -> None:
+            _require_pyqtgraph()
 
-    def _draw_search_window(self, result: dict[str, Any], visible: bool, color: str) -> None:
-        if not visible or getattr(self, "plot_widget", None) is None:
-            return
-        algo = result.get("algorithm")
-        if algo == "rdp_local_aic":
-            x0 = result["search_i0"] / self.fs * 1e6
-            x1 = result["search_i1"] / self.fs * 1e6
-        elif algo == "rdp_global_iceemdan_teo":
-            x0 = result["search_start_s"] * 1e6
-            x1 = result["search_end_s"] * 1e6
-        else:
-            return
-        left = pg.InfiniteLine(pos=x0, angle=90, pen=pg.mkPen(color=color, width=1.0, style=_qt_dash_style()))
-        right = pg.InfiniteLine(pos=x1, angle=90, pen=pg.mkPen(color=color, width=1.0, style=_qt_dash_style()))
-        left.setZValue(2)
-        right.setZValue(2)
-        self.plot_widget.addItem(left)
-        self.plot_widget.addItem(right)
-
-    def reset_view(self) -> None:
-        if getattr(self, "plot_widget", None) is None:
-            return
-        try:
-            self.plot_widget.enableAutoRange(axis="xy", enable=True)
-            self.plot_widget.autoRange()
-        except Exception:
-            pass
-
-    def export_current_view(self, save_path: str, *, width: int = 1600) -> str:
-        return export_plot_widget_image(self.plot_widget, save_path, width=width)
-
-
-def export_plot_widget_image(plot_widget, save_path: str, *, width: int = 1600) -> str:
-    if not _PYQTGRAPH_AVAILABLE:
-        raise RuntimeError(f"pyqtgraph is not available: {_PYQTGRAPH_IMPORT_ERROR}")
-    if plot_widget is None:
-        raise ValueError("plot_widget is None")
-
-    os.makedirs(os.path.dirname(save_path) or ".", exist_ok=True)
-    ext = os.path.splitext(save_path)[1].lower()
-    if ext == ".svg":
-        if SVGExporter is None:
-            raise RuntimeError("SVG exporter is not available in this pyqtgraph installation")
-        exporter = SVGExporter(plot_widget.plotItem)
-        exporter.export(save_path)
-        return save_path
-
-    if ext not in {".png", ".jpg", ".jpeg", ".bmp"}:
-        raise ValueError("Interactive plot export currently supports PNG/JPG/BMP/SVG")
-    exporter = ImageExporter(plot_widget.plotItem)
-    try:
-        exporter.parameters()["width"] = int(width)
-    except Exception:
-        pass
-    exporter.export(save_path)
-    return save_path
+        def clear_results(self) -> None:
+            _require_pyqtgraph()
 
 
 __all__ = [

@@ -28,7 +28,7 @@ if str(CURRENT_DIR) not in sys.path:
 if MODULAR_DIR.exists() and str(MODULAR_DIR) not in sys.path:
     sys.path.insert(0, str(MODULAR_DIR))
 
-from main_modified import Ui_MainWindow
+from main import Ui_MainWindow
 from wavefront_algo_iceemdan_teo import detect_wavefront_rdp_global_iceemdan_teo
 from wavefront_algo_rdp_aic import detect_wavefront_rdp
 from wavefront_data_io import build_pairs, extract_match_key, list_csv_files, load_ab_signals
