@@ -290,29 +290,13 @@ class Ui_MainWindow(object):
         self.valueTimeDifference.setObjectName("valueTimeDifference")
         self.formLayout.setWidget(5, QtWidgets.QFormLayout.ItemRole.FieldRole, self.valueTimeDifference)
 
-        self.labelDistanceToA = QtWidgets.QLabel(parent=self.resultCard)
-        self.labelDistanceToA.setObjectName("labelDistanceToA")
-        self.formLayout.setWidget(6, QtWidgets.QFormLayout.ItemRole.LabelRole, self.labelDistanceToA)
-        self.valueDistanceToA = QtWidgets.QLabel(parent=self.resultCard)
-        self.valueDistanceToA.setWordWrap(True)
-        self.valueDistanceToA.setObjectName("valueDistanceToA")
-        self.formLayout.setWidget(6, QtWidgets.QFormLayout.ItemRole.FieldRole, self.valueDistanceToA)
-
-        self.labelDistanceToB = QtWidgets.QLabel(parent=self.resultCard)
-        self.labelDistanceToB.setObjectName("labelDistanceToB")
-        self.formLayout.setWidget(7, QtWidgets.QFormLayout.ItemRole.LabelRole, self.labelDistanceToB)
-        self.valueDistanceToB = QtWidgets.QLabel(parent=self.resultCard)
-        self.valueDistanceToB.setWordWrap(True)
-        self.valueDistanceToB.setObjectName("valueDistanceToB")
-        self.formLayout.setWidget(7, QtWidgets.QFormLayout.ItemRole.FieldRole, self.valueDistanceToB)
-
         self.labelDetectionStatus = QtWidgets.QLabel(parent=self.resultCard)
         self.labelDetectionStatus.setObjectName("labelDetectionStatus")
-        self.formLayout.setWidget(8, QtWidgets.QFormLayout.ItemRole.LabelRole, self.labelDetectionStatus)
+        self.formLayout.setWidget(6, QtWidgets.QFormLayout.ItemRole.LabelRole, self.labelDetectionStatus)
         self.valueDetectionStatus = QtWidgets.QLabel(parent=self.resultCard)
         self.valueDetectionStatus.setWordWrap(True)
         self.valueDetectionStatus.setObjectName("valueDetectionStatus")
-        self.formLayout.setWidget(8, QtWidgets.QFormLayout.ItemRole.FieldRole, self.valueDetectionStatus)
+        self.formLayout.setWidget(6, QtWidgets.QFormLayout.ItemRole.FieldRole, self.valueDetectionStatus)
 
         self.horizontalLayout_4 = QtWidgets.QHBoxLayout()
         self.horizontalLayout_4.setSpacing(10)
@@ -328,7 +312,7 @@ class Ui_MainWindow(object):
         self.btnClearResult.setObjectName("btnClearResult")
         self.horizontalLayout_4.addWidget(self.btnClearResult)
 
-        self.formLayout.setLayout(9, QtWidgets.QFormLayout.ItemRole.SpanningRole, self.horizontalLayout_4)
+        self.formLayout.setLayout(7, QtWidgets.QFormLayout.ItemRole.SpanningRole, self.horizontalLayout_4)
         self.resultCardLayout.addLayout(self.formLayout)
         self.verticalLayout_2.addWidget(self.resultCard, 0)
 
@@ -593,8 +577,6 @@ class Ui_MainWindow(object):
             QLabel#valueChannelAResult,
             QLabel#valueChannelBResult,
             QLabel#valueTimeDifference,
-            QLabel#valueDistanceToA,
-            QLabel#valueDistanceToB,
             QLabel#valueDetectionStatus {
                 color: #111111;
                 font-weight: 600;
@@ -699,8 +681,8 @@ class Ui_MainWindow(object):
         self.editOutputDir.setPlaceholderText(_translate("MainWindow", "请选择结果保存目录"))
         self.editSensorDistanceM.setProperty("fieldKey", _translate("MainWindow", "sensor_distance_m"))
         self.editSensorDistanceM.setPlaceholderText(_translate("MainWindow", "m"))
-        self.editSamplingFreqMHz.setProperty("fieldKey", _translate("MainWindow", "wave_speed_mps"))
-        self.editSamplingFreqMHz.setPlaceholderText(_translate("MainWindow", "m/s"))
+        self.editSamplingFreqMHz.setProperty("fieldKey", _translate("MainWindow", "sampling_freq_mhz"))
+        self.editSamplingFreqMHz.setPlaceholderText(_translate("MainWindow", "MHz"))
 
         self.labelInputSectionTitle.setText(_translate("MainWindow", "输入与数据配置"))
         self.labelInputDirA.setText(_translate("MainWindow", "数据 A 目录"))
@@ -709,7 +691,7 @@ class Ui_MainWindow(object):
         self.labelPairKeyword.setText(_translate("MainWindow", "配对关键词"))
         self.labelOutputDir.setText(_translate("MainWindow", "结果保存目录"))
         self.labelSensorDistance.setText(_translate("MainWindow", "设备间距 (m)"))
-        self.labelSamplingFreq.setText(_translate("MainWindow", "波速 (m/s)"))
+        self.labelSamplingFreq.setText(_translate("MainWindow", "采样率 (MHz)"))
 
         self.btnBrowseInputDirA.setText(_translate("MainWindow", "..."))
         self.btnBrowseInputDirA.setProperty("targetFieldKey", _translate("MainWindow", "input_dir_a"))
@@ -733,10 +715,6 @@ class Ui_MainWindow(object):
         self.valueChannelBResult.setText(_translate("MainWindow", "-"))
         self.labelTimeDifference.setText(_translate("MainWindow", "波头时间差 (us)"))
         self.valueTimeDifference.setText(_translate("MainWindow", "-"))
-        self.labelDistanceToA.setText(_translate("MainWindow", "故障离 A 端距离 (m)"))
-        self.valueDistanceToA.setText(_translate("MainWindow", "-"))
-        self.labelDistanceToB.setText(_translate("MainWindow", "故障离 B 端距离 (m)"))
-        self.valueDistanceToB.setText(_translate("MainWindow", "-"))
         self.labelDetectionStatus.setText(_translate("MainWindow", "检测状态"))
         self.valueDetectionStatus.setText(_translate("MainWindow", "待运行"))
 
