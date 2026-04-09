@@ -827,5 +827,5 @@ class Ui_MainWindow(object):
         self.btnRunDetection.setText(_translate("MainWindow", "开始检测"))
         self.btnRunDetection.setProperty("actionKey", _translate("MainWindow", "run_detection"))
 
-        self.menu.setTitle(_translate("MainWindow", "主功能"))
+        self.menu.setTitle(_translate("MainWindow", "波头识别"))
         self.toolBar.setWindowTitle(_translate("MainWindow", "toolBar"))

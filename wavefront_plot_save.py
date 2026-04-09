@@ -14,7 +14,7 @@ from typing import Any
 
 import matplotlib.pyplot as plt
 import numpy as np
-
+plt.rcParams['font.sans-serif'] = ['Microsoft Yahei', 'SimHei', 'DejaVu Sans']
 FS = 4.2e6
 
 
@@ -696,11 +696,11 @@ if pg is not None and QtWidgets is not None and QtCore is not None:
             left_layout.setSpacing(6)
 
             self.label_hint = QtWidgets.QLabel(
-                "Controls:\n"
-                "• Left drag: box zoom / select visible time window\n"
-                "• Mouse wheel: zoom in/out\n"
-                "• Right click in plot: activate crosshair readout\n"
-                "• Reset View: restore full time range"
+                "控制说明：\n"
+                "• 左键拖拽：框选缩放 / 选择可见时间窗口\n"
+                "• 鼠标滚轮：放大/缩小\n"
+                "• 图形内右键：激活十字光标读数\n"
+                "• 重置视图：恢复全时间段显示"
             )
             self.label_hint.setWordWrap(True)
             left_layout.addWidget(self.label_hint)
@@ -722,13 +722,13 @@ if pg is not None and QtWidgets is not None and QtCore is not None:
             btn_row.addWidget(self.btn_clear_cursor)
             left_layout.addLayout(btn_row)
 
-            self.group_a = QtWidgets.QGroupBox("Channel A traces")
+            self.group_a = QtWidgets.QGroupBox("A波形路径")
             self.layout_a = QtWidgets.QVBoxLayout(self.group_a)
             self.layout_a.setContentsMargins(6, 10, 6, 6)
             self.layout_a.setSpacing(4)
             left_layout.addWidget(self.group_a)
 
-            self.group_b = QtWidgets.QGroupBox("Channel B traces")
+            self.group_b = QtWidgets.QGroupBox("B波形路径")
             self.layout_b = QtWidgets.QVBoxLayout(self.group_b)
             self.layout_b.setContentsMargins(6, 10, 6, 6)
             self.layout_b.setSpacing(4)

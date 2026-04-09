@@ -48,9 +48,12 @@ class WavefrontMainControllerPG(WavefrontMainController):
             f"{bundle['pair_key']}\n{os.path.basename(bundle['file_a'])}\n{os.path.basename(bundle['file_b'])}"
         )
         self.ui.valueCurrentAlgorithm.setText(run_cfg["algorithm_label"])
+        distance_info = bundle.get("distance_info", {})
         self.ui.valueChannelAResult.setText(f"{result_a['t_head'] * 1e6:.3f} us")
         self.ui.valueChannelBResult.setText(f"{result_b['t_head'] * 1e6:.3f} us")
         self.ui.valueTimeDifference.setText(f"{bundle['dt_us']:.3f}")
+        self.ui.valueDistanceToA.setText(self._format_distance_text(distance_info.get("distance_to_a_m")))
+        self.ui.valueDistanceToB.setText(self._format_distance_text(distance_info.get("distance_to_b_m")))
         self.ui.valueDetectionStatus.setText("Completed")
 
     def save_current_result_figure(self) -> None:

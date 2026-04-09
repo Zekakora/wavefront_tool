@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 from typing import Any, Callable
 
-from PyQt6 import QtCore, QtWidgets
+from PyQt6 import QtCore, QtGui, QtWidgets
 from PyQt6.QtCore import QSettings
 from PyQt6.QtWidgets import QFileDialog, QMainWindow, QMessageBox
 
@@ -15,7 +15,7 @@ from PyQt6.QtWidgets import QFileDialog, QMainWindow, QMessageBox
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qtagg import NavigationToolbar2QT as NavigationToolbar
 import matplotlib.pyplot as plt
-
+plt.rcParams['font.sans-serif'] = ['Microsoft Yahei', 'SimHei', 'DejaVu Sans']
 
 # -----------------------------------------------------------------------------
 # 路径准备：main_modified.py 位于 /mnt/data，模块位于 /mnt/data/wavefront_modular
@@ -29,6 +29,7 @@ if MODULAR_DIR.exists() and str(MODULAR_DIR) not in sys.path:
     sys.path.insert(0, str(MODULAR_DIR))
 
 from main_m import Ui_MainWindow
+from wavelet_transform_panel import WaveletTransformPanel
 from wavefront_algo_iceemdan_teo import detect_wavefront_rdp_global_iceemdan_teo
 from wavefront_algo_rdp_aic import detect_wavefront_rdp
 from wavefront_data_io import build_pairs, extract_match_key, list_csv_files, load_ab_signals
@@ -81,8 +82,12 @@ class WavefrontMainController(QMainWindow):
 
         self._key_param_widgets: dict[str, dict[str, QtWidgets.QWidget]] = {}
 
+        self.wavelet_panel: WaveletTransformPanel | None = None
+
         self._prepare_algorithm_combo()
         self._prepare_plot_area()
+        self._prepare_wavelet_page()
+        self._setup_module_toolbar()
         self._collect_key_param_widgets()
         self._load_general_settings()
         self._load_key_params_from_store()
@@ -116,6 +121,51 @@ class WavefrontMainController(QMainWindow):
         layout.addWidget(placeholder)
         self._plot_placeholder = placeholder
 
+
+    def _prepare_wavelet_page(self) -> None:
+        if self.ui.pageReserved.layout() is None:
+            layout = QtWidgets.QVBoxLayout(self.ui.pageReserved)
+            layout.setContentsMargins(0, 0, 0, 0)
+            layout.setSpacing(0)
+        else:
+            layout = self.ui.pageReserved.layout()
+
+        self.wavelet_panel = WaveletTransformPanel(self.ui.pageReserved)
+        layout.addWidget(self.wavelet_panel)
+
+    def _setup_module_toolbar(self) -> None:
+        # 只保留两个切页动作
+        self.actionGroupModules = QtGui.QActionGroup(self)
+        self.actionGroupModules.setExclusive(True)
+
+        self.actionShowWavefront = QtGui.QAction("波头识别", self)
+        self.actionShowWavefront.setCheckable(True)
+
+        self.actionShowWavelet = QtGui.QAction("小波变换", self)
+        self.actionShowWavelet.setCheckable(True)
+
+        self.actionGroupModules.addAction(self.actionShowWavefront)
+        self.actionGroupModules.addAction(self.actionShowWavelet)
+
+        self.actionShowWavefront.triggered.connect(lambda: self._switch_main_page(0))
+        self.actionShowWavelet.triggered.connect(lambda: self._switch_main_page(1))
+
+        # 菜单栏直接放 QAction，不使用下拉子菜单
+        self.ui.menubar.clear()
+        self.ui.menubar.addAction(self.actionShowWavefront)
+        self.ui.menubar.addAction(self.actionShowWavelet)
+
+        # 工具栏隐藏
+        self.ui.toolBar.hide()
+
+    def _switch_main_page(self, page_index: int, *, save: bool = True) -> None:
+        page_index = 0 if int(page_index) <= 0 else 1
+        self.ui.mainStackedWidget.setCurrentIndex(page_index)
+        self.actionShowWavefront.setChecked(page_index == 0)
+        self.actionShowWavelet.setChecked(page_index == 1)
+        if save:
+            self.settings.setValue("main_page_index", page_index)
+
     def _collect_key_param_widgets(self) -> None:
         self._key_param_widgets = {algo_id: {} for algo_id in ALGORITHM_ORDER}
         pages = [self.ui.pageRdpLocalAicKeyParams, self.ui.pageIceemdanTeoKeyParams]
@@ -143,7 +193,7 @@ class WavefrontMainController(QMainWindow):
         self.ui.editOutputDir.editingFinished.connect(self._save_general_settings)
         self.ui.editPairKeyword.editingFinished.connect(self._save_general_settings)
         self.ui.editSensorDistanceM.editingFinished.connect(self._save_general_settings)
-        self.ui.editSamplingFreqMHz.editingFinished.connect(self._on_sampling_freq_changed)
+        self.ui.editSamplingFreqMHz.editingFinished.connect(self._on_wave_speed_changed)
         self.ui.comboMatchMode.currentIndexChanged.connect(self._on_pair_mode_changed)
 
         # 关键参数区 -> 参数存储
@@ -187,7 +237,7 @@ class WavefrontMainController(QMainWindow):
         self.ui.editOutputDir.setText(self.settings.value("output_dir", "", str))
         self.ui.editPairKeyword.setText(self.settings.value("pair_keyword", "", str))
         self.ui.editSensorDistanceM.setText(self.settings.value("sensor_distance_m", "", str))
-        self.ui.editSamplingFreqMHz.setText(self.settings.value("sampling_freq_mhz", "4.2", str))
+        self.ui.editSamplingFreqMHz.setText(self.settings.value("wave_speed_mps", "299792458", str))
 
         saved_pair_mode = self.settings.value("pair_mode", PAIR_MODE_AUTO, str)
         self.ui.comboMatchMode.setCurrentIndex(0 if saved_pair_mode == PAIR_MODE_AUTO else 1)
@@ -200,8 +250,8 @@ class WavefrontMainController(QMainWindow):
                 break
         self.ui.comboAlgorithm.setCurrentIndex(target_index)
 
-        # 保证通用采样率和参数库内 fs 一致
-        self._apply_common_sampling_to_all_algorithms(save=True)
+        saved_page_index = self.settings.value("main_page_index", 0, int)
+        self._switch_main_page(saved_page_index, save=False)
 
     def _save_general_settings(self) -> None:
         config = self.collect_general_config()
@@ -210,9 +260,10 @@ class WavefrontMainController(QMainWindow):
         self.settings.setValue("output_dir", config["output_dir"])
         self.settings.setValue("pair_keyword", config["pair_keyword"])
         self.settings.setValue("sensor_distance_m", config["sensor_distance_m"])
-        self.settings.setValue("sampling_freq_mhz", str(config["sampling_freq_mhz"]))
+        self.settings.setValue("wave_speed_mps", str(config["wave_speed_mps"]))
         self.settings.setValue("pair_mode", config["pair_mode"])
         self.settings.setValue("algorithm_id", config["algorithm_id"])
+        self.settings.setValue("main_page_index", self.ui.mainStackedWidget.currentIndex())
 
     def _on_pair_mode_changed(self) -> None:
         self._sync_pair_keyword_enabled()
@@ -223,16 +274,8 @@ class WavefrontMainController(QMainWindow):
         self.ui.editPairKeyword.setEnabled(is_keyword_mode)
         self.ui.labelPairKeyword.setEnabled(is_keyword_mode)
 
-    def _on_sampling_freq_changed(self) -> None:
-        self._apply_common_sampling_to_all_algorithms(save=True)
+    def _on_wave_speed_changed(self) -> None:
         self._save_general_settings()
-
-    def _apply_common_sampling_to_all_algorithms(self, *, save: bool) -> None:
-        fs_hz = self.current_sampling_hz()
-        for algorithm_id in ALGORITHM_ORDER:
-            self.param_store.set_param(algorithm_id, "fs", fs_hz, save=False)
-        if save:
-            self.param_store.save()
 
     def _load_key_params_from_store(self) -> None:
         for algorithm_id, widget_map in self._key_param_widgets.items():
@@ -265,11 +308,7 @@ class WavefrontMainController(QMainWindow):
         # 关键参数页刷新
         self._refresh_key_params_for_algorithm(algorithm_id)
 
-        # fs 在对话框里也允许改，这里把它视为全局采样率并同步回主界面
-        params = self.param_store.get_params(algorithm_id)
-        fs_hz = float(params.get("fs", self.current_sampling_hz()))
-        self.ui.editSamplingFreqMHz.setText(self._format_number(fs_hz / 1e6))
-        self._apply_common_sampling_to_all_algorithms(save=True)
+        # 波速为主页面通用参数；完整参数表中的 fs 仅作为算法采样率使用，不再回写主页面。
         self._save_general_settings()
 
     def _on_algorithm_changed(self) -> None:
@@ -294,17 +333,26 @@ class WavefrontMainController(QMainWindow):
     def current_pair_mode(self) -> str:
         return PAIR_MODE_AUTO if self.ui.comboMatchMode.currentIndex() == 0 else PAIR_MODE_KEYWORD
 
-    def current_sampling_hz(self) -> float:
-        text = self.ui.editSamplingFreqMHz.text().strip() or "4.2"
-        mhz = float(text)
-        if mhz <= 0:
-            raise ValueError("Sampling frequency must be > 0 MHz")
-        return mhz * 1e6
+    def current_wave_speed_mps(self) -> float:
+        text = self.ui.editSamplingFreqMHz.text().strip() or "299792458"
+        wave_speed = float(text)
+        if wave_speed <= 0:
+            raise ValueError("Wave speed must be > 0 m/s")
+        return wave_speed
+
+    def current_algorithm_fs_hz(self) -> float:
+        algorithm_id = self.current_algorithm_id()
+        params = self.param_store.get_params(algorithm_id)
+        fs_hz = float(params.get("fs", 4.2e6))
+        if fs_hz <= 0:
+            raise ValueError("Algorithm sampling frequency must be > 0 Hz")
+        return fs_hz
 
     def collect_general_config(self) -> dict[str, Any]:
         sensor_distance_text = self.ui.editSensorDistanceM.text().strip()
         sensor_distance_m = float(sensor_distance_text) if sensor_distance_text else None
-        sampling_freq_mhz = float(self.ui.editSamplingFreqMHz.text().strip() or "4.2")
+        wave_speed_mps = self.current_wave_speed_mps()
+        sampling_freq_hz = self.current_algorithm_fs_hz()
 
         return {
             "input_dir_a": self.ui.editInputDirA.text().strip(),
@@ -313,8 +361,8 @@ class WavefrontMainController(QMainWindow):
             "pair_mode": self.current_pair_mode(),
             "pair_keyword": self.ui.editPairKeyword.text().strip(),
             "sensor_distance_m": sensor_distance_m,
-            "sampling_freq_mhz": sampling_freq_mhz,
-            "sampling_freq_hz": sampling_freq_mhz * 1e6,
+            "wave_speed_mps": wave_speed_mps,
+            "sampling_freq_hz": sampling_freq_hz,
             "algorithm_id": self.current_algorithm_id(),
             "algorithm_label": ALGORITHM_DEFINITIONS[self.current_algorithm_id()]["label"],
         }
@@ -473,7 +521,14 @@ class WavefrontMainController(QMainWindow):
         result_a = algo_func(signals["x_a"], **params)
         result_b = algo_func(signals["x_b"], **params)
 
-        dt_us = abs(result_a["t_head"] - result_b["t_head"]) * 1e6
+        dt_signed_s = float(result_b["t_head"] - result_a["t_head"])
+        dt_us = abs(dt_signed_s) * 1e6
+        distance_info = self._compute_fault_distance_info(
+            run_cfg.get("sensor_distance_m"),
+            run_cfg.get("wave_speed_mps"),
+            result_a["t_head"],
+            result_b["t_head"],
+        )
         output_dir = run_cfg["output_dir"].strip()
         saved_paths: dict[str, str] = {}
 
@@ -491,6 +546,7 @@ class WavefrontMainController(QMainWindow):
                 fs=run_cfg["sampling_freq_hz"],
                 algorithm_label=run_cfg["algorithm_label"],
                 general_config=run_cfg,
+                distance_info=distance_info,
             )
             self.last_output_dir_used = save_dir
 
@@ -501,6 +557,8 @@ class WavefrontMainController(QMainWindow):
             "result_a": result_a,
             "result_b": result_b,
             "dt_us": dt_us,
+            "dt_signed_s": dt_signed_s,
+            "distance_info": distance_info,
             "saved_paths": saved_paths,
             "run_config": run_cfg,
         }
@@ -508,6 +566,29 @@ class WavefrontMainController(QMainWindow):
     def _build_save_dir_with_dt(self, output_dir: str, pair_key: str, dt_us: float) -> str:
         folder_name = f"{pair_key}_{dt_us:.2f}us"
         return os.path.join(output_dir, folder_name)
+
+    def _compute_fault_distance_info(self, sensor_distance_m: float | None, wave_speed_mps: float | None, t_head_a: float, t_head_b: float) -> dict[str, Any]:
+        if sensor_distance_m is None or wave_speed_mps is None:
+            return {
+                "dt_signed_s": None,
+                "distance_to_a_m": None,
+                "distance_to_b_m": None,
+            }
+
+        dt_signed_s = float(t_head_b - t_head_a)
+        distance_to_a_m = float((sensor_distance_m - wave_speed_mps * dt_signed_s) / 2.0)
+        distance_to_b_m = float(sensor_distance_m - distance_to_a_m)
+        return {
+            "dt_signed_s": dt_signed_s,
+            "distance_to_a_m": distance_to_a_m,
+            "distance_to_b_m": distance_to_b_m,
+        }
+
+    @staticmethod
+    def _format_distance_text(distance_m: float | None) -> str:
+        if distance_m is None:
+            return "-"
+        return f"{distance_m:.3f} m"
 
     def _save_pair_outputs(
         self,
@@ -521,6 +602,7 @@ class WavefrontMainController(QMainWindow):
         fs: float,
         algorithm_label: str,
         general_config: dict[str, Any],
+        distance_info: dict[str, Any],
     ) -> dict[str, str]:
         base_a = Path(file_a).stem
         base_b = Path(file_b).stem
@@ -563,6 +645,9 @@ class WavefrontMainController(QMainWindow):
             "algorithm_id": general_config["algorithm_id"],
             "algorithm_label": algorithm_label,
             "dt_us": abs(result_a["t_head"] - result_b["t_head"]) * 1e6,
+            "dt_signed_s": distance_info.get("dt_signed_s"),
+            "distance_to_a_m": distance_info.get("distance_to_a_m"),
+            "distance_to_b_m": distance_info.get("distance_to_b_m"),
             "t_head_a_us": result_a["t_head"] * 1e6,
             "t_head_b_us": result_b["t_head"] * 1e6,
             "general_config": {
@@ -572,7 +657,7 @@ class WavefrontMainController(QMainWindow):
                 "pair_mode": general_config["pair_mode"],
                 "pair_keyword": general_config["pair_keyword"],
                 "sensor_distance_m": general_config["sensor_distance_m"],
-                "sampling_freq_mhz": general_config["sampling_freq_mhz"],
+                "wave_speed_mps": general_config["wave_speed_mps"],
             },
             "algorithm_params": general_config["params"],
             "saved_paths": {
@@ -616,9 +701,12 @@ class WavefrontMainController(QMainWindow):
             f"{bundle['pair_key']}\n{os.path.basename(bundle['file_a'])}\n{os.path.basename(bundle['file_b'])}"
         )
         self.ui.valueCurrentAlgorithm.setText(run_cfg["algorithm_label"])
+        distance_info = bundle.get("distance_info", {})
         self.ui.valueChannelAResult.setText(f"{result_a['t_head'] * 1e6:.3f} us")
         self.ui.valueChannelBResult.setText(f"{result_b['t_head'] * 1e6:.3f} us")
         self.ui.valueTimeDifference.setText(f"{bundle['dt_us']:.3f}")
+        self.ui.valueDistanceToA.setText(self._format_distance_text(distance_info.get("distance_to_a_m")))
+        self.ui.valueDistanceToB.setText(self._format_distance_text(distance_info.get("distance_to_b_m")))
         self.ui.valueDetectionStatus.setText("Completed")
 
     def save_current_result_figure(self) -> None:
@@ -656,6 +744,8 @@ class WavefrontMainController(QMainWindow):
         self.ui.valueChannelAResult.setText("-")
         self.ui.valueChannelBResult.setText("-")
         self.ui.valueTimeDifference.setText("-")
+        self.ui.valueDistanceToA.setText("-")
+        self.ui.valueDistanceToB.setText("-")
         self.ui.valueDetectionStatus.setText("Ready")
 
     # ------------------------------------------------------------------
