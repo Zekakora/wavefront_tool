@@ -14,6 +14,7 @@ from typing import Any
 
 import matplotlib.pyplot as plt
 import numpy as np
+
 plt.rcParams['font.sans-serif'] = ['Microsoft Yahei', 'SimHei', 'DejaVu Sans']
 FS = 4.2e6
 
@@ -140,7 +141,8 @@ def _plot_rdp_row_global(ax_row, result: dict[str, Any], *, end_label: str, fs: 
     ax4.legend(loc="best", fontsize=8)
 
 
-def _plot_rdp_row_local(ax_row, result: dict[str, Any], *, end_label: str, fs: float, x_left: float, x_right: float) -> None:
+def _plot_rdp_row_local(ax_row, result: dict[str, Any], *, end_label: str, fs: float, x_left: float,
+                        x_right: float) -> None:
     x_raw = result["x_raw"]
     x_wavelet = result["x_wavelet"]
     x_smooth = result["x_smooth"]
@@ -235,7 +237,8 @@ def _plot_rdp_row_local(ax_row, result: dict[str, Any], *, end_label: str, fs: f
     ax4.plot(t, x_wavelet, linewidth=1.0, alpha=0.8, label="Wavelet denoised")
     ax4.plot(t, x_smooth, linewidth=1.2, label="SG smoothed")
     ax4.axhline(baseline, linestyle="--", label="Baseline")
-    ax4.axvspan(result["aic_i0"] / fs * 1e6, result["aic_i1"] / fs * 1e6, alpha=0.12, color="tab:cyan", label="AIC window")
+    ax4.axvspan(result["aic_i0"] / fs * 1e6, result["aic_i1"] / fs * 1e6, alpha=0.12, color="tab:cyan",
+                label="AIC window")
     ax4.axvline(coarse_t_us, linestyle="--", color="tab:red", label="Coarse idx")
     ax4.axvline(trigger_t_us, linestyle="--", color="tab:purple", label="Trigger")
     ax4.axvline(head_t_us, linestyle="--", color="orange", label="AIC head")
@@ -319,23 +322,24 @@ def _plot_ice_row_global(ax_row, result: dict[str, Any], *, end_label: str, fs: 
     ax4.legend(loc="best", fontsize=8)
 
 
-def _plot_ice_row_local(ax_row, result: dict[str, Any], *, end_label: str, fs: float, x_left: float, x_right: float) -> None:
+def _plot_ice_row_local(ax_row, result: dict[str, Any], *, end_label: str, fs: float, x_left: float,
+                        x_right: float) -> None:
     _plot_ice_row_global(ax_row, result, end_label=end_label, fs=fs)
     for ax in ax_row:
         ax.set_xlim(x_left, x_right)
 
 
 def create_result_figure_single(
-    result: dict[str, Any],
-    *,
-    end_label: str = "Signal",
-    fs: float | None = None,
-    local_zoom: bool = False,
-    x_left: float | None = None,
-    x_right: float | None = None,
-    title_prefix: str | None = None,
-    figsize: tuple[float, float] = (24, 5),
-    dpi: int = 200,
+        result: dict[str, Any],
+        *,
+        end_label: str = "Signal",
+        fs: float | None = None,
+        local_zoom: bool = False,
+        x_left: float | None = None,
+        x_right: float | None = None,
+        title_prefix: str | None = None,
+        figsize: tuple[float, float] = (24, 5),
+        dpi: int = 200,
 ):
     fs = _result_fs(result, fs)
     fig, axes = plt.subplots(1, 4, figsize=figsize, dpi=dpi)
@@ -378,17 +382,17 @@ def create_result_figure_single(
 
 
 def create_result_figure_ab(
-    result_a: dict[str, Any],
-    result_b: dict[str, Any],
-    *,
-    file_a: str | None = None,
-    file_b: str | None = None,
-    fs: float | None = None,
-    local_zoom: bool = False,
-    plot_pad_ratio: float = 0.20,
-    title_prefix: str | None = None,
-    figsize: tuple[float, float] = (24, 10),
-    dpi: int = 200,
+        result_a: dict[str, Any],
+        result_b: dict[str, Any],
+        *,
+        file_a: str | None = None,
+        file_b: str | None = None,
+        fs: float | None = None,
+        local_zoom: bool = False,
+        plot_pad_ratio: float = 0.20,
+        title_prefix: str | None = None,
+        figsize: tuple[float, float] = (24, 10),
+        dpi: int = 200,
 ):
     if result_a.get("algorithm") != result_b.get("algorithm"):
         raise ValueError("A/B 结果的算法类型不一致，无法共用同一套子图模板")
@@ -502,7 +506,8 @@ def build_result_summary(result: dict[str, Any]) -> dict[str, Any]:
     return {str(k): _summarize_value(v) for k, v in result.items()}
 
 
-def save_result_summary_json(result: dict[str, Any], save_path: str, *, ensure_ascii: bool = False, indent: int = 2) -> str:
+def save_result_summary_json(result: dict[str, Any], save_path: str, *, ensure_ascii: bool = False,
+                             indent: int = 2) -> str:
     os.makedirs(os.path.dirname(save_path) or ".", exist_ok=True)
     summary = build_result_summary(result)
     with open(save_path, "w", encoding="utf-8") as f:
@@ -525,7 +530,8 @@ def print_result_summary(result: dict[str, Any], *, end_name: str = "") -> None:
         print(f"{prefix}触发点 idx_trigger = {result['idx_trigger']}")
         print(f"{prefix}最终波头 idx_head = {result['idx_head']}")
         print(f"{prefix}最终波头 t_head = {result['t_head'] * 1e6:.6f} us")
-        print(f"{prefix}搜索窗 = [{result['search_i0'] / result['params']['fs'] * 1e6:.3f}, {result['search_i1'] / result['params']['fs'] * 1e6:.3f}] us")
+        print(
+            f"{prefix}搜索窗 = [{result['search_i0'] / result['params']['fs'] * 1e6:.3f}, {result['search_i1'] / result['params']['fs'] * 1e6:.3f}] us")
         metrics = result.get("metrics", {})
         if metrics:
             print(f"{prefix}综合置信度 = {metrics['confidence']:.1f}/100")
@@ -564,6 +570,7 @@ from pathlib import Path
 try:
     import pyqtgraph as pg  # type: ignore
     import pyqtgraph.exporters as pg_exporters  # type: ignore
+
     _PG_IMPORT_ERROR: Exception | None = None
 except Exception as _exc_pg:  # pragma: no cover - import-time fallback
     pg = None  # type: ignore
@@ -572,12 +579,14 @@ except Exception as _exc_pg:  # pragma: no cover - import-time fallback
 
 try:  # pragma: no cover - import-time fallback
     from PyQt6 import QtCore, QtWidgets
+
     QT_PEN_SOLID = QtCore.Qt.PenStyle.SolidLine
     QT_RIGHT_BUTTON = QtCore.Qt.MouseButton.RightButton
     QT_HORIZONTAL = QtCore.Qt.Orientation.Horizontal
 except Exception:
     try:
         from PyQt5 import QtCore, QtWidgets  # type: ignore
+
         QT_PEN_SOLID = QtCore.Qt.SolidLine
         QT_RIGHT_BUTTON = QtCore.Qt.RightButton
         QT_HORIZONTAL = QtCore.Qt.Horizontal
@@ -587,10 +596,8 @@ except Exception:
         if _PG_IMPORT_ERROR is None:
             _PG_IMPORT_ERROR = _exc_qt
 
-
 if pg is not None:
     pg.setConfigOptions(antialias=True)
-
 
 A_COLORS = [
     (25, 118, 210),
@@ -662,6 +669,7 @@ if pg is not None and QtWidgets is not None and QtCore is not None:
         - Right click toggles crosshair mode; while active, left-drag performs rectangle zoom
         - The visible x-range is shown as selected time window
         - Wavehead positions are marked for both ends
+        - Raw signal plotted on Left Y-axis; Features/Filters plotted on Right Y-axis
         """
 
         def __init__(self, parent=None) -> None:
@@ -744,13 +752,29 @@ if pg is not None and QtWidgets is not None and QtCore is not None:
             self.plot_widget.setBackground("w")
             self.plot_widget.showGrid(x=True, y=True, alpha=0.22)
             self.plot_widget.setLabel("bottom", "Time", units="us")
-            self.plot_widget.setLabel("left", "Amplitude / Feature")
+            self.plot_widget.setLabel("left", "Amplitude (原始信号)")
+            self.plot_widget.setLabel("right", "Feature / Filtered (特征/滤波)")
             self._set_mouse_pan_mode()
             self.plot_widget.setMenuEnabled(False)
             right_layout.addWidget(self.plot_widget, 1)
 
             self.plot_item = self.plot_widget.getPlotItem()
             self.legend = self.plot_item.addLegend(offset=(12, 8))
+
+            # ========== 新增：创建右侧坐标轴 ViewBox ==========
+            self.vb_sec = pg.ViewBox()
+            self.plot_item.scene().addItem(self.vb_sec)
+            self.plot_item.showAxis('right')
+            self.plot_item.getAxis('right').linkToView(self.vb_sec)
+            self.vb_sec.setXLink(self.plot_item.vb)
+
+            def updateViews():
+                self.vb_sec.setGeometry(self.plot_item.vb.sceneBoundingRect())
+                self.vb_sec.linkedViewChanged(self.plot_item.vb, self.vb_sec.XAxis)
+
+            updateViews()
+            self.plot_item.vb.sigResized.connect(updateViews)
+            # ==================================================
 
             self.vline = pg.InfiniteLine(angle=90, movable=False, pen=pg.mkPen((50, 50, 50), width=1))
             self.hline = pg.InfiniteLine(angle=0, movable=False, pen=pg.mkPen((50, 50, 50), width=1))
@@ -760,7 +784,8 @@ if pg is not None and QtWidgets is not None and QtCore is not None:
             self.plot_item.addItem(self.hline, ignoreBounds=True)
 
             self.marker_items: list[Any] = []
-            self.proxy_move = pg.SignalProxy(self.plot_widget.scene().sigMouseMoved, rateLimit=60, slot=self._on_mouse_moved)
+            self.proxy_move = pg.SignalProxy(self.plot_widget.scene().sigMouseMoved, rateLimit=60,
+                                             slot=self._on_mouse_moved)
             self.plot_widget.scene().sigMouseClicked.connect(self._on_mouse_clicked)
             self.plot_widget.getViewBox().sigXRangeChanged.connect(self._on_x_range_changed)
 
@@ -847,18 +872,36 @@ if pg is not None and QtWidgets is not None and QtCore is not None:
             color = A_COLORS[0] if channel == "A" else B_COLORS[0]
             return pg.mkPen(color=color, width=2.2, style=QT_PEN_SOLID)
 
-        def _plot_channel_series(self, channel: str, result: dict[str, Any], series_map: dict[str, np.ndarray], checks: dict[str, QtWidgets.QCheckBox]) -> None:
+        def _plot_channel_series(self, channel: str, result: dict[str, Any], series_map: dict[str, np.ndarray],
+                                 checks: dict[str, QtWidgets.QCheckBox]) -> None:
             for idx, (name, y) in enumerate(series_map.items()):
                 cb = checks.get(name)
                 if cb is None or not cb.isChecked():
                     continue
                 x_us = time_vector(len(y), self.fs) * 1e6
-                self.plot_item.plot(
-                    x_us,
-                    np.asarray(y, dtype=float),
-                    pen=self._channel_pen(channel, idx),
-                    name=f"{channel}-{name}",
-                )
+
+                # ===== 修改：区分原始信号与其余信号的坐标轴 =====
+                if name == "原始信号":
+                    # 原始信号画在左坐标轴
+                    self.plot_item.plot(
+                        x_us,
+                        np.asarray(y, dtype=float),
+                        pen=self._channel_pen(channel, idx),
+                        name=f"{channel}-{name}",
+                    )
+                else:
+                    # 其他特征信号画在右坐标轴
+                    curve = pg.PlotCurveItem(
+                        x_us,
+                        np.asarray(y, dtype=float),
+                        pen=self._channel_pen(channel, idx),
+                        name=f"{channel}-{name} (右轴)"
+                    )
+                    self.vb_sec.addItem(curve)
+                    # 手动向图例添加标签
+                    if self.legend is not None:
+                        self.legend.addItem(curve, f"{channel}-{name} (右轴)")
+                # ==================================================
 
             t_head_us = float(result.get("t_head", 0.0)) * 1e6
             head_line = pg.InfiniteLine(pos=t_head_us, angle=90, movable=False, pen=self._head_pen(channel))
@@ -866,17 +909,25 @@ if pg is not None and QtWidgets is not None and QtCore is not None:
             self.marker_items.append(head_line)
 
             y_ref = None
+            is_right_axis = False  # <--- 新增：用于记录标记点应该放在哪个坐标轴
+
             x_smooth = result.get("x_smooth")
             if x_smooth is not None:
                 arr = np.asarray(x_smooth, dtype=float)
-                idx_head = int(np.clip(int(round(result.get("idx_head", 0))), 0, max(len(arr) - 1, 0))) if arr.size else 0
+                idx_head = int(
+                    np.clip(int(round(result.get("idx_head", 0))), 0, max(len(arr) - 1, 0))) if arr.size else 0
                 if arr.size:
                     y_ref = float(arr[idx_head])
+                    is_right_axis = True  # <--- 新增：x_smooth 画在右轴，标记点也要去右轴
+
             if y_ref is None:
                 x_raw = np.asarray(result.get("x_raw", []), dtype=float)
-                idx_head = int(np.clip(int(round(result.get("idx_head", 0))), 0, max(len(x_raw) - 1, 0))) if x_raw.size else 0
+                idx_head = int(
+                    np.clip(int(round(result.get("idx_head", 0))), 0, max(len(x_raw) - 1, 0))) if x_raw.size else 0
                 if x_raw.size:
                     y_ref = float(x_raw[idx_head])
+                    is_right_axis = False  # <--- 新增：如果降级使用 x_raw，则画在左轴
+
             if y_ref is not None:
                 scatter = pg.ScatterPlotItem(
                     [t_head_us],
@@ -886,7 +937,14 @@ if pg is not None and QtWidgets is not None and QtCore is not None:
                     size=9,
                     symbol="o",
                 )
-                self.plot_item.addItem(scatter)
+
+                # ========== 修改处：根据数据的来源，将散点加入对应的坐标轴 ==========
+                if is_right_axis:
+                    self.vb_sec.addItem(scatter)
+                else:
+                    self.plot_item.addItem(scatter)
+                # ====================================================================
+
                 self.marker_items.append(scatter)
 
         def _render_plot(self) -> None:
@@ -899,6 +957,8 @@ if pg is not None and QtWidgets is not None and QtCore is not None:
                 x_range = None
 
             self.plot_item.clear()
+            self.vb_sec.clear()  # <--- 新增：清理右轴
+
             if self.legend is None:
                 self.legend = self.plot_item.addLegend(offset=(12, 8))
             else:
@@ -920,7 +980,8 @@ if pg is not None and QtWidgets is not None and QtCore is not None:
 
             # self.plot_widget.setTitle(self.title_prefix or "Wavefront Interactive Viewer")
             self.plot_widget.setLabel("bottom", "Time", units="us")
-            self.plot_widget.setLabel("left", "Amplitude / Feature")
+            self.plot_widget.setLabel("left", "Amplitude (原始信号)")
+            self.plot_widget.setLabel("right", "Feature / Filtered (特征/滤波)")  # <--- 新增：设置右侧标签
             self.plot_widget.showGrid(x=True, y=True, alpha=0.22)
 
             if x_range is None:
@@ -928,6 +989,7 @@ if pg is not None and QtWidgets is not None and QtCore is not None:
             else:
                 self.plot_widget.setXRange(float(x_range[0]), float(x_range[1]), padding=0.0)
                 self.plot_widget.enableAutoRange(axis="y", enable=True)
+                self.vb_sec.enableAutoRange(axis="y", enable=True)  # <--- 新增：右轴开启自动缩放
                 self._update_range_label()
 
         def _on_x_range_changed(self, *args) -> None:
@@ -971,30 +1033,31 @@ if pg is not None and QtWidgets is not None and QtCore is not None:
         def _set_crosshair(self, x_us: float, y_val: float) -> None:
             self.vline.setPos(float(x_us))
             self.hline.setPos(float(y_val))
-            self.label_cursor.setText(f"Crosshair: t = {float(x_us):.3f} us, y = {float(y_val):.6g}")
+            self.label_cursor.setText(f"指针准星： t = {float(x_us):.3f} us, y = {float(y_val):.6g}")
 
         def clear_cursor(self) -> None:
             self._crosshair_enabled = False
             self.vline.hide()
             self.hline.hide()
             self._set_mouse_pan_mode()
-            self.label_cursor.setText("Crosshair: inactive")
+            self.label_cursor.setText("指针准星：未启用")
 
         def reset_view(self) -> None:
             x0, x1 = self._full_x_range
             self.plot_widget.setXRange(float(x0), float(x1), padding=0.02)
             self.plot_widget.enableAutoRange(axis="y", enable=True)
+            self.vb_sec.enableAutoRange(axis="y", enable=True)  # <--- 新增：右轴开启自动缩放
             self._update_range_label()
 
         def set_results(
-            self,
-            result_a: dict[str, Any],
-            result_b: dict[str, Any],
-            *,
-            file_a: str | None = None,
-            file_b: str | None = None,
-            fs: float | None = None,
-            title_prefix: str | None = None,
+                self,
+                result_a: dict[str, Any],
+                result_b: dict[str, Any],
+                *,
+                file_a: str | None = None,
+                file_b: str | None = None,
+                fs: float | None = None,
+                title_prefix: str | None = None,
         ) -> None:
             self.result_a = result_a
             self.result_b = result_b
@@ -1029,6 +1092,7 @@ if pg is not None and QtWidgets is not None and QtCore is not None:
             self.checkboxes_b.clear()
             self._updating_checks = False
             self.plot_item.clear()
+            self.vb_sec.clear()  # <--- 新增：清理右轴
             self.plot_item.addItem(self.vline, ignoreBounds=True)
             self.plot_item.addItem(self.hline, ignoreBounds=True)
             self.clear_cursor()
@@ -1046,7 +1110,6 @@ else:
 
         def clear_results(self) -> None:
             _require_pyqtgraph()
-
 
 __all__ = [
     "FS",

@@ -15,6 +15,7 @@ from PyQt6.QtWidgets import QFileDialog, QMainWindow, QMessageBox
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qtagg import NavigationToolbar2QT as NavigationToolbar
 import matplotlib.pyplot as plt
+
 plt.rcParams['font.sans-serif'] = ['Microsoft Yahei', 'SimHei', 'DejaVu Sans']
 
 # -----------------------------------------------------------------------------
@@ -34,10 +35,10 @@ from wavefront_algo_iceemdan_teo import detect_wavefront_rdp_global_iceemdan_teo
 from wavefront_algo_rdp_aic import detect_wavefront_rdp
 from wavefront_data_io import build_pairs, extract_match_key, list_csv_files, load_ab_signals
 from wavefront_param_dialog import FullParameterDialog
+from wavefront_param_translations import PARAM_LABELS_ZH, CHOICE_TEXT_ZH
 from wavefront_param_schema import ALGORITHM_DEFINITIONS
 from wavefront_param_store import ParameterStore
 from wavefront_plot_save import create_result_figure_ab, save_figure, save_result_summary_json
-
 
 ALGORITHM_CALLABLES: dict[str, Callable[..., dict[str, Any]]] = {
     "rdp_local_aic": detect_wavefront_rdp,
@@ -89,12 +90,88 @@ class WavefrontMainController(QMainWindow):
         self._prepare_wavelet_page()
         self._setup_module_toolbar()
         self._collect_key_param_widgets()
+
+        # --- 新增：动态汉化主界面参数区 ---
+        self._translate_key_param_ui()
+
         self._load_general_settings()
         self._load_key_params_from_store()
         self._wire_signals()
         self._sync_pair_keyword_enabled()
         self._sync_algorithm_page()
         self._update_result_labels_idle()
+
+    # ------------------------------------------------------------------
+    # 动态 UI 汉化
+    # ------------------------------------------------------------------
+    def _translate_key_param_ui(self) -> None:
+        """动态汉化主界面关键参数区的 QLabel 和 QComboBox，并赋予 Tooltip"""
+        try:
+            from wavefront_param_translations import PARAM_LABELS_ZH, PARAM_TOOLTIPS_ZH, CHOICE_TEXT_ZH
+        except ImportError:
+            return  # 如果没有翻译文件，则保持原样
+
+        eng_to_zh: dict[str, str] = {}
+        eng_to_key: dict[str, str] = {}
+
+        # 从全量参数表中建立 英文 -> 中文，以及 英文 -> Key 的映射
+        for algo_info in ALGORITHM_DEFINITIONS.values():
+            for field in algo_info["schema"]:
+                key = field["key"]
+                eng_label = field["label"]
+                zh_label = PARAM_LABELS_ZH.get(key)
+
+                eng_to_key[eng_label] = key
+                if zh_label:
+                    eng_to_zh[eng_label] = zh_label
+                    eng_to_zh[key] = zh_label
+
+        pages = [self.ui.pageRdpLocalAicKeyParams, self.ui.pageIceemdanTeoKeyParams]
+        for page in pages:
+            # 1. 汉化标签 (QLabel) 并添加悬浮提示
+            for label in page.findChildren(QtWidgets.QLabel):
+                text = label.text().strip()
+                has_colon = text.endswith(":") or text.endswith("：")
+                clean_text = text[:-1].strip() if has_colon else text
+
+                # 获取该标签背后的参数键值 (Key)
+                param_key = eng_to_key.get(clean_text)
+
+                # 替换为中文
+                if clean_text in eng_to_zh:
+                    new_text = eng_to_zh[clean_text]
+                    if has_colon:
+                        new_text += ":"
+                    label.setText(new_text)
+
+                # 如果有对应的解释，注入 Tooltip 并更改鼠标光标
+                if param_key and param_key in PARAM_TOOLTIPS_ZH:
+                    desc = PARAM_TOOLTIPS_ZH[param_key]
+                    tooltip_text = f"💡 作用：{desc}\n[参数键：{param_key}]"
+                    label.setToolTip(tooltip_text)
+                    # 设置“问号”帮助光标
+                    cursor_shape = QtCore.Qt.CursorShape.WhatsThisCursor if hasattr(QtCore.Qt,
+                                                                                    "CursorShape") else QtCore.Qt.WhatsThisCursor
+                    label.setCursor(cursor_shape)
+
+            # 2. 汉化下拉框 (QComboBox) 并保留原始数据
+            for combo in page.findChildren(QtWidgets.QComboBox):
+                for i in range(combo.count()):
+                    item_text = combo.itemText(i)
+                    # 补充 itemData 保证后端读取依然是英文 value
+                    if combo.itemData(i) is None:
+                        combo.setItemData(i, item_text)
+
+                    if item_text in CHOICE_TEXT_ZH:
+                        combo.setItemText(i, CHOICE_TEXT_ZH[item_text])
+
+        # 3. 为输入控件本身 (QLineEdit, QComboBox 等) 也挂载 Tooltip
+        for algo_id, widget_map in self._key_param_widgets.items():
+            for param_key, widget in widget_map.items():
+                if param_key in PARAM_TOOLTIPS_ZH:
+                    desc = PARAM_TOOLTIPS_ZH[param_key]
+                    tooltip_text = f"💡 作用：{desc}\n[参数键：{param_key}]"
+                    widget.setToolTip(tooltip_text)
 
     # ------------------------------------------------------------------
     # 初始化与控件装配
@@ -120,7 +197,6 @@ class WavefrontMainController(QMainWindow):
         placeholder.setStyleSheet("color: #666; border: 1px dashed #BBB; padding: 24px;")
         layout.addWidget(placeholder)
         self._plot_placeholder = placeholder
-
 
     def _prepare_wavelet_page(self) -> None:
         if self.ui.pageReserved.layout() is None:
@@ -381,7 +457,8 @@ class WavefrontMainController(QMainWindow):
     # ------------------------------------------------------------------
     # 文件配对逻辑
     # ------------------------------------------------------------------
-    def _resolve_pairs(self, input_dir_a: str, input_dir_b: str, pair_mode: str, pair_keyword: str) -> list[tuple[str, str, str]]:
+    def _resolve_pairs(self, input_dir_a: str, input_dir_b: str, pair_mode: str, pair_keyword: str) -> list[
+        tuple[str, str, str]]:
         if not input_dir_a:
             raise ValueError("Please select Data A directory first.")
 
@@ -392,8 +469,8 @@ class WavefrontMainController(QMainWindow):
                 pairs = [
                     pair for pair in pairs
                     if pair_keyword in pair[0]
-                    or pair_keyword in os.path.basename(pair[1])
-                    or pair_keyword in os.path.basename(pair[2])
+                       or pair_keyword in os.path.basename(pair[1])
+                       or pair_keyword in os.path.basename(pair[2])
                 ]
             return pairs
 
@@ -421,7 +498,8 @@ class WavefrontMainController(QMainWindow):
             files_a = sorted(files_a)
             files_b = sorted(files_b)
             for i, (fa, fb) in enumerate(zip(files_a, files_b), start=1):
-                key = extract_match_key(os.path.basename(fa)) or extract_match_key(os.path.basename(fb)) or f"pair_{i:03d}"
+                key = extract_match_key(os.path.basename(fa)) or extract_match_key(
+                    os.path.basename(fb)) or f"pair_{i:03d}"
                 pairs.append((key, fa, fb))
             return pairs
 
@@ -504,7 +582,8 @@ class WavefrontMainController(QMainWindow):
             return
 
         if failures:
-            self.ui.valueDetectionStatus.setText(f"Finished with warnings: {successes} success / {len(failures)} failed")
+            self.ui.valueDetectionStatus.setText(
+                f"Finished with warnings: {successes} success / {len(failures)} failed")
             QMessageBox.warning(
                 self,
                 "Detection Finished with Warnings",
@@ -567,7 +646,8 @@ class WavefrontMainController(QMainWindow):
         folder_name = f"{pair_key}_{dt_us:.2f}us"
         return os.path.join(output_dir, folder_name)
 
-    def _compute_fault_distance_info(self, sensor_distance_m: float | None, wave_speed_mps: float | None, t_head_a: float, t_head_b: float) -> dict[str, Any]:
+    def _compute_fault_distance_info(self, sensor_distance_m: float | None, wave_speed_mps: float | None,
+                                     t_head_a: float, t_head_b: float) -> dict[str, Any]:
         if sensor_distance_m is None or wave_speed_mps is None:
             return {
                 "dt_signed_s": None,
@@ -591,18 +671,18 @@ class WavefrontMainController(QMainWindow):
         return f"{distance_m:.3f} m"
 
     def _save_pair_outputs(
-        self,
-        *,
-        save_dir: str,
-        pair_key: str,
-        file_a: str,
-        file_b: str,
-        result_a: dict[str, Any],
-        result_b: dict[str, Any],
-        fs: float,
-        algorithm_label: str,
-        general_config: dict[str, Any],
-        distance_info: dict[str, Any],
+            self,
+            *,
+            save_dir: str,
+            pair_key: str,
+            file_a: str,
+            file_b: str,
+            result_a: dict[str, Any],
+            result_b: dict[str, Any],
+            fs: float,
+            algorithm_label: str,
+            general_config: dict[str, Any],
+            distance_info: dict[str, Any],
     ) -> dict[str, str]:
         base_a = Path(file_a).stem
         base_b = Path(file_b).stem
@@ -617,7 +697,7 @@ class WavefrontMainController(QMainWindow):
             local_zoom=False,
             title_prefix=title_prefix,
         )
-        global_path = os.path.join(save_dir, f"{base_a}__{base_b}_AB_global.png")
+        global_path = os.path.join(save_dir, f"{base_a}___AB_global.png")
         save_figure(fig_global, global_path, dpi=200, close_fig=True)
 
         fig_local, _ = create_result_figure_ab(
@@ -629,7 +709,7 @@ class WavefrontMainController(QMainWindow):
             local_zoom=True,
             title_prefix=title_prefix,
         )
-        local_path = os.path.join(save_dir, f"{base_a}__{base_b}_AB_local.png")
+        local_path = os.path.join(save_dir, f"{base_a}___AB_local.png")
         save_figure(fig_local, local_path, dpi=200, close_fig=True)
 
         json_a_path = os.path.join(save_dir, f"{base_a}_summary.json")

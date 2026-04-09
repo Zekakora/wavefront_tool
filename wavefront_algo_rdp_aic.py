@@ -8,16 +8,8 @@ that a PyQt UI can pass parameters directly.
 from __future__ import annotations
 
 from typing import Any
-
 import numpy as np
-try:
-    import pywt
-except Exception as exc:  # pragma: no cover - import guard for environments without PyWavelets
-    pywt = None
-    _PYWT_IMPORT_ERROR = exc
-else:
-    _PYWT_IMPORT_ERROR = None
-
+import pywt
 from scipy import signal
 
 FS = 4.2e6

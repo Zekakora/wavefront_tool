@@ -24,6 +24,7 @@ try:
         QVBoxLayout,
         QWidget,
     )
+
     QT_API = "PyQt6"
 except ImportError:
     from PyQt5.QtCore import Qt, pyqtSignal
@@ -47,101 +48,17 @@ except ImportError:
         QVBoxLayout,
         QWidget,
     )
+
     QT_API = "PyQt5"
 
 try:
     from .wavefront_param_schema import ALGORITHM_DEFINITIONS
     from .wavefront_param_store import ParameterStore
+    from .wavefront_param_translations import PARAM_LABELS_ZH, PARAM_TOOLTIPS_ZH, CHOICE_TEXT_ZH
 except ImportError:
     from wavefront_param_schema import ALGORITHM_DEFINITIONS
     from wavefront_param_store import ParameterStore
-
-
-PARAM_LABELS_ZH = {
-    "fs": "采样频率",
-    "pre_n": "前置基线样本数",
-    "wavelet_enabled": "启用小波降噪",
-    "wavelet": "小波基",
-    "wavelet_level": "小波分解层数",
-    "wavelet_beta": "阈值函数 Beta",
-    "wavelet_threshold_scale": "阈值缩放系数",
-    "wavelet_use_level_dependent_sigma": "按层估计噪声 Sigma",
-    "wavelet_mode": "边界模式",
-    "rough_k": "粗定位阈值 K",
-    "rough_consecutive": "粗定位连续点数",
-    "threshold_sg_window": "阈值平滑窗口",
-    "threshold_sg_poly": "阈值平滑阶数",
-    "rdp_left_us": "RDP 左侧窗口 (us)",
-    "rdp_right_us": "RDP 右侧窗口 (us)",
-    "rdp_epsilon": "RDP Epsilon",
-    "rdp_sg_window": "RDP 平滑窗口",
-    "rdp_sg_poly": "RDP 平滑阶数",
-    "rdp_sg_polyorder": "RDP 平滑阶数",
-    "rdp_seg_slope_k": "RDP 分段斜率阈值 K",
-    "rdp_seg_amp_k": "RDP 分段幅值阈值 K",
-    "rdp_weak_factor": "弱候选抑制系数",
-    "search_left_us": "搜索左窗口 (us)",
-    "search_right_us": "搜索右窗口 (us)",
-    "noise_guard_us": "噪声保护间隔 (us)",
-    "noise_win_us": "噪声窗口长度 (us)",
-    "slope_win": "斜率窗口长度",
-    "slope_poly": "斜率拟合阶数",
-    "amp_k": "幅值阈值 K",
-    "slope_k": "斜率阈值 K",
-    "min_consecutive": "最少连续点数",
-    "fit_n": "切线拟合点数",
-    "polarity": "极性",
-    "aic_left_us": "AIC 左窗口 (us)",
-    "aic_right_us": "AIC 右窗口 (us)",
-    "aic_min_split": "AIC 最小分割点数",
-    "aic_smooth_win": "AIC 平滑窗口",
-    "aic_smooth_poly": "AIC 平滑阶数",
-    "rdp_preprocess": "启用 RDP 预处理",
-    "rdp_pre_n": "RDP 前置样本数",
-    "rdp_post_check_n": "RDP 后检查样本数",
-    "rdp_thr_method": "RDP 阈值方法",
-    "rdp_k": "RDP 阈值 K",
-    "rdp_use_abs": "RDP 使用绝对值",
-    "rdp_min_consecutive": "RDP 最少连续点数",
-    "min_pre_noise_us": "最小前置噪声窗口 (us)",
-    "global_preprocess": "全局预处理",
-    "use_imf_mode": "IMF 使用方式",
-    "alpha2": "IMF2 权重 Alpha2",
-    "ensemble_size": "ICEEMDAN 集合数",
-    "noise_strength": "ICEEMDAN 噪声强度",
-    "max_imfs": "最大 IMF 数",
-    "random_state": "随机种子",
-    "use_mirror_pad": "启用镜像填充",
-    "mirror_pad_us": "镜像填充长度 (us)",
-    "pre_sg_window": "预平滑窗口",
-    "sigma_k": "Sigma 阈值 K",
-    "min_peak_distance_samples": "最小峰距样本数",
-    "cross_consecutive": "越阈连续点数",
-    "pick_mode": "波头拾取模式",
-    "slope_polarity": "斜率极性",
-    "slope_smooth_win": "斜率平滑窗口",
-    "edge_ignore_samples": "边缘忽略样本数",
-}
-
-CHOICE_TEXT_ZH = {
-    "first_cross": "首次越阈",
-    "max": "最大值",
-    "first_sig_slope": "首个显著斜率",
-    "auto": "自动",
-    "positive": "正向",
-    "negative": "负向",
-    "mad": "MAD",
-    "std": "标准差",
-    "constant": "常数去趋势",
-    "linear": "线性去趋势",
-    "none": "不处理",
-    "iimf1": "仅 IMF1",
-    "iimf12": "IMF1 + α·IMF2",
-    "symmetric": "对称延拓",
-    "periodization": "周期延拓",
-    "reflect": "反射延拓",
-    "zero": "零填充",
-}
+    from wavefront_param_translations import PARAM_LABELS_ZH, PARAM_TOOLTIPS_ZH, CHOICE_TEXT_ZH
 
 
 def _algorithm_label_zh(algorithm_id: str, original: str) -> str:
@@ -242,7 +159,8 @@ def _section_specs_for_algorithm(algorithm_id: str) -> list[dict[str, Any]]:
             {
                 "title": "3. 搜索窗与全局预处理",
                 "description": "ICEEMDAN 分解前的搜索范围与整体预处理配置。",
-                "keys": ["search_left_us", "search_right_us", "noise_guard_us", "min_pre_noise_us", "global_preprocess"],
+                "keys": ["search_left_us", "search_right_us", "noise_guard_us", "min_pre_noise_us",
+                         "global_preprocess"],
             },
             {
                 "title": "4. ICEEMDAN 分解",
@@ -281,10 +199,10 @@ class ParameterEditorWidget(QWidget):
     valuesChanged = pyqtSignal(dict)
 
     def __init__(
-        self,
-        schema: list[dict[str, Any]],
-        parent: QWidget | None = None,
-        section_specs: list[dict[str, Any]] | None = None,
+            self,
+            schema: list[dict[str, Any]],
+            parent: QWidget | None = None,
+            section_specs: list[dict[str, Any]] | None = None,
     ) -> None:
         super().__init__(parent)
         self.schema = schema
@@ -389,11 +307,22 @@ class ParameterEditorWidget(QWidget):
     def _create_label(self, field: dict[str, Any]) -> QLabel:
         label = QLabel(self._translated_label_text(field))
         label.setWordWrap(True)
+
+        key = field["key"]
         original = field.get("label", "")
+        desc = PARAM_TOOLTIPS_ZH.get(key, "")
+
+        tooltip_lines = []
+        if desc:
+            tooltip_lines.append(f"💡 作用：{desc}\n")
+            cursor_shape = Qt.CursorShape.WhatsThisCursor if QT_API == "PyQt6" else Qt.WhatsThisCursor
+            label.setCursor(cursor_shape)
+
+        tooltip_lines.append(f"参数键：{key}")
         if original and original != label.text():
-            label.setToolTip(f"原始字段名：{original}\n参数键：{field['key']}")
-        else:
-            label.setToolTip(f"参数键：{field['key']}")
+            tooltip_lines.append(f"原始英文：{original}")
+
+        label.setToolTip("\n".join(tooltip_lines))
         return label
 
     def _choice_display_text(self, choice: Any) -> str:

@@ -11,22 +11,8 @@ from typing import Any
 import numpy as np
 from scipy import signal
 from scipy.signal import find_peaks
-
-try:
-    from PyEMD import EMD
-except Exception as exc:  # pragma: no cover - import guard for environments without PyEMD
-    EMD = None
-    _PYEMD_IMPORT_ERROR = exc
-else:
-    _PYEMD_IMPORT_ERROR = None
-
-try:
-    import fastrdp
-except Exception as exc:  # pragma: no cover - import guard for environments without fastrdp
-    fastrdp = None
-    _FASTRDP_IMPORT_ERROR = exc
-else:
-    _FASTRDP_IMPORT_ERROR = None
+from PyEMD import EMD
+import fastrdp
 
 FS = 4.2e6
 
