@@ -705,19 +705,19 @@ if pg is not None and QtWidgets is not None and QtCore is not None:
             self.label_hint.setWordWrap(True)
             left_layout.addWidget(self.label_hint)
 
-            self.label_range = QtWidgets.QLabel("Selected / visible time window: --")
+            self.label_range = QtWidgets.QLabel("已选 / 可见时间窗口: --")
             self.label_range.setWordWrap(True)
             left_layout.addWidget(self.label_range)
 
-            self.label_cursor = QtWidgets.QLabel("Crosshair: inactive")
+            self.label_cursor = QtWidgets.QLabel("十字光标: 未激活")
             self.label_cursor.setWordWrap(True)
             left_layout.addWidget(self.label_cursor)
 
             btn_row = QtWidgets.QHBoxLayout()
-            self.btn_reset_view = QtWidgets.QPushButton("Reset View")
+            self.btn_reset_view = QtWidgets.QPushButton("重置视图")
             self.btn_reset_view.clicked.connect(self.reset_view)
             btn_row.addWidget(self.btn_reset_view)
-            self.btn_clear_cursor = QtWidgets.QPushButton("Clear Cursor")
+            self.btn_clear_cursor = QtWidgets.QPushButton("清除光标")
             self.btn_clear_cursor.clicked.connect(self.clear_cursor)
             btn_row.addWidget(self.btn_clear_cursor)
             left_layout.addLayout(btn_row)
@@ -792,10 +792,10 @@ if pg is not None and QtWidgets is not None and QtCore is not None:
                 add_series("幅值 dev", result.get("amp_dev"))
                 add_series("AIC信号", result.get("aic_signal"))
             elif algo == "rdp_global_iceemdan_teo":
-                add_series("Raw", result.get("x_raw"))
-                add_series("Preprocessed", result.get("x_proc"))
-                add_series("TEO Input", result.get("teo_input"))
-                add_series("IMF Smoothed", result.get("x_smooth"))
+                add_series("原始信号", result.get("x_raw"))
+                add_series("预处理信号", result.get("x_proc"))
+                add_series("TEO能量算子 输入", result.get("teo_input"))
+                add_series("IMF 平滑", result.get("x_smooth"))
                 add_series(result.get("feature_name", "Feature"), result.get("feature"))
                 imfs = result.get("imfs")
                 if imfs is not None:
