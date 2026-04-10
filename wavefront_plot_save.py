@@ -11,7 +11,7 @@ from __future__ import annotations
 import json
 import os
 from typing import Any
-
+import PySide6.QtOpenGL
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -578,7 +578,7 @@ except Exception as _exc_pg:  # pragma: no cover - import-time fallback
     _PG_IMPORT_ERROR = _exc_pg
 
 try:  # pragma: no cover - import-time fallback
-    from PyQt6 import QtCore, QtWidgets
+    from PySide6 import QtCore, QtWidgets
 
     QT_PEN_SOLID = QtCore.Qt.PenStyle.SolidLine
     QT_RIGHT_BUTTON = QtCore.Qt.MouseButton.RightButton
@@ -620,7 +620,7 @@ B_COLORS = [
 def _require_pyqtgraph() -> None:
     if pg is None or QtWidgets is None or QtCore is None:
         raise ImportError(
-            "pyqtgraph viewer requires pyqtgraph and PyQt (PyQt6 or PyQt5). "
+            "pyqtgraph viewer requires pyqtgraph and PyQt (PySide6 or PyQt5). "
             f"Original import error: {_PG_IMPORT_ERROR}"
         )
 
