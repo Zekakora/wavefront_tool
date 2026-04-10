@@ -7,9 +7,9 @@ import sys
 from pathlib import Path
 from typing import Any, Callable
 
-from PyQt6 import QtCore, QtGui, QtWidgets
-from PyQt6.QtCore import QSettings
-from PyQt6.QtWidgets import QFileDialog, QMainWindow, QMessageBox
+from PySide6 import QtCore, QtGui, QtWidgets
+from PySide6.QtCore import QSettings
+from PySide6.QtWidgets import QFileDialog, QMainWindow, QMessageBox
 
 # Matplotlib Qt backend
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas

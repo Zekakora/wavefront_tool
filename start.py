@@ -3,9 +3,9 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from PyQt6 import QtWidgets
-from PyQt6.QtWidgets import QFileDialog, QMessageBox
-
+from PySide6 import QtWidgets
+from PySide6.QtWidgets import QFileDialog, QMessageBox
+import PySide6.QtOpenGL
 from wavefront_main_controller import CURRENT_DIR, WavefrontMainController
 from wavefront_plot_save import WavefrontInteractiveViewer, export_plot_widget_image
 

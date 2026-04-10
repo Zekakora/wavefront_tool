@@ -3,8 +3,8 @@ from __future__ import annotations
 from typing import Any
 
 try:
-    from PyQt6.QtCore import Qt, pyqtSignal
-    from PyQt6.QtWidgets import (
+    from PySide6.QtCore import Qt, Signal
+    from PySide6.QtWidgets import (
         QApplication,
         QCheckBox,
         QComboBox,
@@ -25,9 +25,9 @@ try:
         QWidget,
     )
 
-    QT_API = "PyQt6"
+    QT_API = "PySide6"
 except ImportError:
-    from PyQt5.QtCore import Qt, pyqtSignal
+    from PyQt5.QtCore import Qt, Signal
     from PyQt5.QtWidgets import (
         QApplication,
         QCheckBox,
@@ -196,7 +196,7 @@ def _section_specs_for_algorithm(algorithm_id: str) -> list[dict[str, Any]]:
 
 
 class ParameterEditorWidget(QWidget):
-    valuesChanged = pyqtSignal(dict)
+    valuesChanged = Signal(dict)
 
     def __init__(
             self,
@@ -231,10 +231,10 @@ class ParameterEditorWidget(QWidget):
         layout = QFormLayout()
         layout.setFieldGrowthPolicy(
             QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow
-            if QT_API == "PyQt6"
+            if QT_API == "PySide6"
             else QFormLayout.AllNonFixedFieldsGrow
         )
-        if QT_API == "PyQt6":
+        if QT_API == "PySide6":
             layout.setRowWrapPolicy(QFormLayout.RowWrapPolicy.WrapLongRows)
             layout.setLabelAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
             layout.setFormAlignment(Qt.AlignmentFlag.AlignTop)
@@ -315,7 +315,7 @@ class ParameterEditorWidget(QWidget):
         tooltip_lines = []
         if desc:
             tooltip_lines.append(f"💡 作用：{desc}\n")
-            cursor_shape = Qt.CursorShape.WhatsThisCursor if QT_API == "PyQt6" else Qt.WhatsThisCursor
+            cursor_shape = Qt.CursorShape.WhatsThisCursor if QT_API == "PySide6" else Qt.WhatsThisCursor
             label.setCursor(cursor_shape)
 
         tooltip_lines.append(f"参数键：{key}")
@@ -413,7 +413,7 @@ class ParameterEditorWidget(QWidget):
 
 
 class FullParameterDialog(QDialog):
-    paramsApplied = pyqtSignal(dict)
+    paramsApplied = Signal(dict)
 
     def __init__(self, algorithm_id: str, store: ParameterStore, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -469,7 +469,7 @@ class FullParameterDialog(QDialog):
 
         self.scroll = QScrollArea(self)
         self.scroll.setWidgetResizable(True)
-        self.scroll.setFrameShape(QFrame.Shape.NoFrame if QT_API == "PyQt6" else QFrame.NoFrame)
+        self.scroll.setFrameShape(QFrame.Shape.NoFrame if QT_API == "PySide6" else QFrame.NoFrame)
         root.addWidget(self.scroll, 1)
 
         self.editor = ParameterEditorWidget(
@@ -487,14 +487,14 @@ class FullParameterDialog(QDialog):
 
         self.button_box = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
-            if QT_API == "PyQt6"
+            if QT_API == "PySide6"
             else QDialogButtonBox.Ok | QDialogButtonBox.Cancel
         )
         ok_button = self.button_box.button(
-            QDialogButtonBox.StandardButton.Ok if QT_API == "PyQt6" else QDialogButtonBox.Ok
+            QDialogButtonBox.StandardButton.Ok if QT_API == "PySide6" else QDialogButtonBox.Ok
         )
         cancel_button = self.button_box.button(
-            QDialogButtonBox.StandardButton.Cancel if QT_API == "PyQt6" else QDialogButtonBox.Cancel
+            QDialogButtonBox.StandardButton.Cancel if QT_API == "PySide6" else QDialogButtonBox.Cancel
         )
         if ok_button is not None:
             ok_button.setText("保存并应用")

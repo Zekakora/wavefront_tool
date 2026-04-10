@@ -1,4 +1,4 @@
-from PyQt6 import QtCore, QtGui, QtWidgets
+from PySide6 import QtCore, QtGui, QtWidgets
 
 
 class Ui_MainWindow(object):
@@ -687,7 +687,7 @@ class Ui_MainWindow(object):
 
     def retranslateUi(self, MainWindow):
         _translate = QtCore.QCoreApplication.translate
-        MainWindow.setWindowTitle(_translate("MainWindow", "Wavefront Locator"))
+        MainWindow.setWindowTitle(_translate("MainWindow", "双端波头分析"))
 
         self.editInputDirA.setProperty("fieldKey", _translate("MainWindow", "input_dir_a"))
         self.editInputDirA.setPlaceholderText(_translate("MainWindow", "请选择 A 端数据目录"))
